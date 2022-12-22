@@ -5,13 +5,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  sync:
-    runs-on: ubuntu-20.04
+  echo-input:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/github-script@v6
-    - uses: actions/setup-node@v1
-      with:
-        node-version: '16'
-    - name: Test hello world
-      run: |
-        echo "Hello world"
+      - uses: actions/github-script@v6
+        env:
+          FIRST_NAME: Mona
+          LAST_NAME: Octocat
+        with:
+          script: |
+            const { FIRST_NAME, LAST_NAME } = process.env
+
+            console.log(`Hello ${FIRST_NAME} ${LAST_NAME}`)

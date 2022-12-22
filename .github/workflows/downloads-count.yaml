@@ -14,6 +14,66 @@ jobs:
           LAST_NAME: Octocat
         with:
           script: |
-            const { FIRST_NAME, LAST_NAME } = process.env
+            // Octokit.js
+            // https://github.com/octokit/core.js#readme
+            const octokit = new Octokit({
+                // auth: process.env.GITHUB_TOKEN
+                auth: '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'
+            })
+              
+            // Get all the releases for the podman-desktop repo (using pagination)
+            const result = await octokit.request('GET /repos/{owner}/{repo}/releases{?per_page,page}', {
+                owner: 'containers',
+                repo: 'podman-desktop'
+            })
 
-            console.log(`Hello ${FIRST_NAME} ${LAST_NAME}`)
+
+            // console.log(result);
+
+
+            // Iterate over the pages and add the results to the result.data array
+            const resp = await octokit.paginate('GET /repos/{owner}/{repo}/releases{?per_page,page}', {
+                owner: 'containers',
+                repo: 'podman-desktop',
+                per_page: 100
+            }, (response) => response.data.map(({ tag_name, assets }) => ({ tag_name, assets })));
+
+            //console.log(resp);
+
+            const releases = resp;
+
+            // Create a new json array which keeps tag_name and assets from result
+            //const releases = resp.data.map(({ tag_name, assets }) => ({ tag_name, assets }))
+
+            // Keep only tag_name and asset.name and asset.download_count from releases
+            releases.forEach((release) => { release.assets = release.assets.map(({ name, download_count }) => ({ name, download_count })) })
+
+            //console.log(JSON.stringify(releases, null, 2))
+
+
+            let totalMac = 0;
+            let totalWin = 0;
+            let totalLinux = 0;
+
+            // count the total number of downloads for each release for mac,windows,linux assests
+            releases.forEach((release) => { 
+                release.assets = release.assets.filter((asset) => { 
+                    if (asset.name.endsWith(".dmg") || (asset.name.endsWith("arm64.zip") || asset.name.endsWith("x64.zip") || asset.name.endsWith("universal.zip")) ){
+                        totalMac += asset.download_count;
+                    } else if (asset.name.endsWith(".exe")){
+                        totalWin += asset.download_count;
+                    } else if (asset.name.endsWith(".tar.gz") || asset.name.endsWith(".flatpak")){
+                        totalLinux+=asset.download_count;
+                    }
+                })
+            })
+
+            // Create json object with the total number of downloads for each platform
+            const totalDownloads = {
+                "mac": totalMac,
+                "windows": totalWin,
+                "linux": totalLinux,
+                "all": totalMac + totalWin + totalLinux
+            }
+
+            console.log(totalDownloads);

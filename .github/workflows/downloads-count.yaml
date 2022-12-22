@@ -16,7 +16,7 @@ jobs:
             // Octokit.js
             // https://github.com/octokit/core.js#readme
             const octokit = new Octokit({
-                auth: env.GITHUB_TOKEN
+                auth: GITHUB_TOKEN
             })
               
             // Get all the releases for the podman-desktop repo (using pagination)

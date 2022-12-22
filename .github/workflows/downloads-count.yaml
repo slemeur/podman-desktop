@@ -1,5 +1,5 @@
 # Launch bot
-name: sync
+name: Downloads Count
 
 on:
   workflow_dispatch:
@@ -7,8 +7,6 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-20.04
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - uses: actions/github-script@v6
     - uses: actions/setup-node@v1

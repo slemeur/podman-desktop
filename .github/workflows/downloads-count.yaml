@@ -9,16 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v6
-        env:
-          FIRST_NAME: Mona
-          LAST_NAME: Octocat
         with:
           script: |
             // Octokit.js
             // https://github.com/octokit/core.js#readme
             const octokit = new Octokit({
-                // auth: process.env.GITHUB_TOKEN
-                auth: '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'
+                auth: env.GITHUB_TOKEN
             })
               
             // Get all the releases for the podman-desktop repo (using pagination)

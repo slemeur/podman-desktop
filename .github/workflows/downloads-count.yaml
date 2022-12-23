@@ -16,4 +16,5 @@ jobs:
                 owner: 'containers',
                 repo: 'podman-desktop'
             })
-            console.log(test.data);
+
+            console.log(test.data.length);

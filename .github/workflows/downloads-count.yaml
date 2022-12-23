@@ -4,6 +4,12 @@ name: Downloads Count
 on:
   workflow_dispatch:
 
+env:
+  MAC_DOWNLOADS: 0
+  WINDOWS_DOWNLOADS: 0
+  LINUX_DOWNLOADS: 0
+  ALL_DOWNLOADS: 0
+
 jobs:
   get-all-releases-count:
     runs-on: ubuntu-latest
@@ -50,6 +56,11 @@ jobs:
                 "all": totalMac + totalWin + totalLinux
             }
 
+            $MAC_DOWNLOADS = totalMac;
+            $WINDOWS_DOWNLOADS = totalWin;
+            $LINUX_DOWNLOADS = totalLinux;
+            $ALL_DOWNLOADS = totalMac + totalWin + totalLinux;
+
             console.log(totalDownloads);
 
   publish-downloads-count-segment:
@@ -64,10 +75,4 @@ jobs:
       - run: npm install analytics-node
       - name: send-event
         run: |
-            // Publish event to Segment.io with totalDownloads
-            const segment = new Analytics('Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy');
-            segment.track({
-                userId: 'podman-desktop-downloads-action',
-                event: 'downloads',
-                properties: totalDownloads
-            });
+            echo $MAC_DOWNLOADS

@@ -5,11 +5,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  all-releases:
+  get-all-releases-count:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v6
-      - uses: segment/analytics-node
         with:
           script: |
             const resp = await github.paginate('GET /repos/{owner}/{repo}/releases{?per_page,page}', {
@@ -53,6 +52,26 @@ jobs:
 
             console.log(totalDownloads);
 
+            // Publish event to Segment.io with totalDownloads
+            const segment = new Analytics('Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy');
+            segment.track({
+                userId: 'podman-desktop-downloads-action',
+                event: 'downloads',
+                properties: totalDownloads
+            });
+
+  publish-downloads-count-segment:
+    needs: get-all-releases-count
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      - run: npm install
+      - run: npm install analytics-node
+      - name: send-event
+        run: |
             // Publish event to Segment.io with totalDownloads
             const segment = new Analytics('Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy');
             segment.track({

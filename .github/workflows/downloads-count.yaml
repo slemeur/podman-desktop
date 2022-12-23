@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  MAC_DOWNLOADS: 0
+  MAC_DOWNLOADS: 220
   WINDOWS_DOWNLOADS: 0
   LINUX_DOWNLOADS: 0
   ALL_DOWNLOADS: 0
@@ -55,6 +55,10 @@ jobs:
                 "linux": totalLinux,
                 "all": totalMac + totalWin + totalLinux
             }
+
+            // Set the environment variables for mac downloads, windows downloads, linux downloads and all downloads
+
+            console.log($MAC_DOWNLOADS);
 
             process.env.MAC_DOWNLOADS = totalMac;
 

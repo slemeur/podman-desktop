@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v6
+      - uses: segment/analytics-node
         with:
           script: |
             const resp = await github.paginate('GET /repos/{owner}/{repo}/releases{?per_page,page}', {
@@ -53,7 +54,6 @@ jobs:
             console.log(totalDownloads);
 
             // Publish event to Segment.io with totalDownloads
-            const { Analytics } = require('@segment/analytics-node');
             const segment = new Analytics('Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy');
             segment.track({
                 userId: 'podman-desktop-downloads-action',

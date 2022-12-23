@@ -5,19 +5,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  first-releases:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/github-script@v6
-        with:
-          script: |
-            const test = await github.rest.repos.listReleases({
-                owner: 'containers',
-                repo: 'podman-desktop'
-            });
-            const releases = await github.paginate(test);
-
-            console.log(releases.data.length);
   all-releases:
     runs-on: ubuntu-latest
     steps:
@@ -30,4 +17,37 @@ jobs:
                 per_page: 100
             }, (response) => response.data.map(({ tag_name, assets }) => ({ tag_name, assets })));
 
-            console.log(resp.length);
+            const releases = resp;
+
+            // Create a new json array which keeps tag_name and assets from result
+            //const releases = resp.data.map(({ tag_name, assets }) => ({ tag_name, assets }))
+
+            // Keep only tag_name and asset.name and asset.download_count from releases
+            releases.forEach((release) => { release.assets = release.assets.map(({ name, download_count }) => ({ name, download_count })) })
+
+            let totalMac = 0;
+            let totalWin = 0;
+            let totalLinux = 0;
+
+            // count the total number of downloads for each release for mac,windows,linux assests
+            releases.forEach((release) => { 
+                release.assets = release.assets.filter((asset) => { 
+                    if (asset.name.endsWith(".dmg") || (asset.name.endsWith("arm64.zip") || asset.name.endsWith("x64.zip") || asset.name.endsWith("universal.zip")) ){
+                        totalMac += asset.download_count;
+                    } else if (asset.name.endsWith(".exe")){
+                        totalWin += asset.download_count;
+                    } else if (asset.name.endsWith(".tar.gz") || asset.name.endsWith(".flatpak")){
+                        totalLinux+=asset.download_count;
+                    }
+                })
+            })
+
+            // Create json object with the total number of downloads for each platform
+            const totalDownloads = {
+                "mac": totalMac,
+                "windows": totalWin,
+                "linux": totalLinux,
+                "all": totalMac + totalWin + totalLinux
+            }
+
+            console.log(totalDownloads);

@@ -56,7 +56,7 @@ jobs:
                 "all": totalMac + totalWin + totalLinux
             }
 
-            ${MAC_DOWNLOADS} = totalMac;
+            process.env.MAC_DOWNLOADS = totalMac;
 
             $MAC_DOWNLOADS = totalMac;
             $WINDOWS_DOWNLOADS = totalWin;

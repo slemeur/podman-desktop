@@ -14,9 +14,10 @@ jobs:
             const test = await github.rest.repos.listReleases({
                 owner: 'containers',
                 repo: 'podman-desktop'
-            }), (response) => response.data.map(({ tag_name, assets }) => ({ tag_name, assets }));
+            });
+            const releases = await github.paginate(test);
 
-            console.log(test.data.length);
+            console.log(releases.data.length);
   all-releases:
     runs-on: ubuntu-latest
     steps:

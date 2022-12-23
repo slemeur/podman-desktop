@@ -21,7 +21,7 @@ jobs:
                 owner: 'containers',
                 repo: 'podman-desktop'
             })
-            console.log(test);
+            console.log(test.data);
 
 
             // Get all the releases for the podman-desktop repo (using pagination)

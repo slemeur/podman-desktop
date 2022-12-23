@@ -62,6 +62,9 @@ jobs:
 
             process.env.MAC_DOWNLOADS = totalMac;
 
+            console.log('modified: '+process.env.MAC_DOWNLOADS);
+
+
             $MAC_DOWNLOADS = totalMac;
             $WINDOWS_DOWNLOADS = totalWin;
             $LINUX_DOWNLOADS = totalLinux;

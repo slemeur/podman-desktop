@@ -5,16 +5,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  echo-input:
+  first-releases:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v6
         with:
           script: |
-            console.log(context);
             const test = await github.rest.repos.listReleases({
                 owner: 'containers',
                 repo: 'podman-desktop'
-            })
+            }), (response) => response.data.map(({ tag_name, assets }) => ({ tag_name, assets })));
 
             console.log(test.data.length);
+  all-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const resp = await github.rest.paginate('GET /repos/{owner}/{repo}/releases{?per_page,page}', {
+                owner: 'containers',
+                repo: 'podman-desktop',
+                per_page: 100
+            }, (response) => response.data.map(({ tag_name, assets }) => ({ tag_name, assets })));
+
+            console.log(resp.length);

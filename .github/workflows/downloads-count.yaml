@@ -58,7 +58,7 @@ jobs:
 
             // Set the environment variables for mac downloads, windows downloads, linux downloads and all downloads
 
-            console.log($MAC_DOWNLOADS);
+            console.log(process.env.MAC_DOWNLOADS);
 
             process.env.MAC_DOWNLOADS = totalMac;
 

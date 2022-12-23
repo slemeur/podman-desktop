@@ -12,7 +12,7 @@ jobs:
         with:
           script: |
             console.log(context);
-            const test = await github.repos.listReleases({
+            const test = await github.rest.repos.listReleases({
                 owner: 'containers',
                 repo: 'podman-desktop'
             })

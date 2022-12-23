@@ -56,6 +56,8 @@ jobs:
                 "all": totalMac + totalWin + totalLinux
             }
 
+            ${MAC_DOWNLOADS} = totalMac;
+
             $MAC_DOWNLOADS = totalMac;
             $WINDOWS_DOWNLOADS = totalWin;
             $LINUX_DOWNLOADS = totalLinux;
@@ -67,12 +69,6 @@ jobs:
     needs: get-all-releases-count
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-      - run: npm install
-      - run: npm install analytics-node
       - name: send-event
         run: |
             echo $MAC_DOWNLOADS

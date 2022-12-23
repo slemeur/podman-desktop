@@ -51,3 +51,11 @@ jobs:
             }
 
             console.log(totalDownloads);
+
+            // Publish event to Segment.io with totalDownloads
+            const segment = new Analytics('Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy');
+            segment.track({
+                userId: 'podman-desktop-downloads-action',
+                event: 'downloads',
+                properties: totalDownloads
+            });

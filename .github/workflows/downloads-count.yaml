@@ -13,6 +13,8 @@ env:
 jobs:
   get-all-releases-count:
     runs-on: ubuntu-latest
+    env:
+      MAC_DOWNLOADS_2: 11
     steps:
       - uses: actions/github-script@v6
         with:
@@ -61,14 +63,17 @@ jobs:
             console.log(process.env.MAC_DOWNLOADS);
 
             process.env.MAC_DOWNLOADS = totalMac;
+            process.env.MAC_DOWNLOADS_2 = totalMac;
 
-            console.log('modified: '+process.env.MAC_DOWNLOADS);
 
+            console.log('modified: '+process.env.MAC_DOWNLOADS + ' mac-downloads-2: ' + process.env.MAC_DOWNLOADS_2);
 
             $MAC_DOWNLOADS = totalMac;
             $WINDOWS_DOWNLOADS = totalWin;
             $LINUX_DOWNLOADS = totalLinux;
             $ALL_DOWNLOADS = totalMac + totalWin + totalLinux;
+
+            echo "macOsCounts=123" >> ${GITHUB_OUTPUT}
 
             console.log(totalDownloads);
 
@@ -78,4 +83,4 @@ jobs:
     steps:
       - name: send-event
         run: |
-            echo $MAC_DOWNLOADS
+            echo ${{ steps.get-all-releases-count.outputs.macOsCounts }}

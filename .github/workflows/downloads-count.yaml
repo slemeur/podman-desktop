@@ -73,7 +73,7 @@ jobs:
             $LINUX_DOWNLOADS = totalLinux;
             $ALL_DOWNLOADS = totalMac + totalWin + totalLinux;
 
-            echo "macOsCounts=123" >> ${GITHUB_OUTPUT};
+            // echo "macOsCounts=123" >> ${GITHUB_OUTPUT};
 
             console.log(totalDownloads);
 

@@ -16,6 +16,7 @@ jobs:
     env:
       MAC_DOWNLOADS_2: 11
     steps:
+      - name: calculate
       - uses: actions/github-script@v6
         with:
           script: |
@@ -76,6 +77,11 @@ jobs:
             // echo "macOsCounts=123" >> ${GITHUB_OUTPUT};
 
             console.log(totalDownloads);
+
+      - name: publish
+        run: |
+          echo process.env.MAC_DOWNLOADS
+
 
   publish-downloads-count-segment:
     needs: get-all-releases-count

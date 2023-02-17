@@ -63,6 +63,7 @@ jobs:
             //test using environment variable
             console.log(`action_state=yellow` >> process.env.GITHUB_ENV);
 
+            console.log(process.env.action_state);
           
       - name: send-event-4
         run: |

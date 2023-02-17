@@ -4,7 +4,11 @@ name: Downloads Count
 on:
   workflow_dispatch:
 
+env:
+    ACTION_STATE: green
+
 jobs:
+
   get-all-releases-count:
     runs-on: ubuntu-latest
 
@@ -15,9 +19,6 @@ jobs:
       totalWin: ${{ steps.process-downloads.outputs.totalWin }}
       totalLinux: ${{ steps.process-downloads.outputs.totalLinux }}
       totalDownloads: ${{ steps.process-downloads.outputs.totalDownloads }}
-
-    env:
-      ACTION_STATE: green
 
     steps:
       - uses: actions/github-script@v6

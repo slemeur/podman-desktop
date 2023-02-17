@@ -7,10 +7,13 @@ on:
 jobs:
   get-all-releases-count:
     runs-on: ubuntu-latest
-    env:
-      MAC_DOWNLOADS_2: 11
+
+    outputs:
+      downloads-json: ${{ steps.process-downloads.outputs.downloads }}
+
     steps:
       - uses: actions/github-script@v6
+        id: process-downloads
         with:
           script: |
             const resp = await github.paginate('GET /repos/{owner}/{repo}/releases{?per_page,page}', {
@@ -51,6 +54,8 @@ jobs:
                 "linux": totalLinux,
                 "all": totalMac + totalWin + totalLinux
             };
+
+
             
             $MAC_DOWNLOADS = totalMac;
             $WINDOWS_DOWNLOADS = totalWin;
@@ -59,12 +64,17 @@ jobs:
 
             console.log(totalDownloads);
 
+            //return value to be used in next step
+            return JSON.stringify(totalDownloads);
+          
+
   publish-downloads-count-segment:
     needs: get-all-releases-count
     runs-on: ubuntu-latest
     steps:
       - name: send-event
         run: |
+            echo "${{steps.process-downloads.outputs.result}}"
             curl https://api.segment.io/v1/track \
             -X POST \
             -H 'Content-Type: application/json' \

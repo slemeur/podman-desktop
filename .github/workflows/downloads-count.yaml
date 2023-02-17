@@ -16,7 +16,6 @@ jobs:
     env:
       MAC_DOWNLOADS_2: 11
     steps:
-      - name: calculate
       - uses: actions/github-script@v6
         with:
           script: |
@@ -74,8 +73,14 @@ jobs:
             $LINUX_DOWNLOADS = totalLinux;
             $ALL_DOWNLOADS = totalMac + totalWin + totalLinux;
 
+            echo "macOsCounts=123" >> ${GITHUB_OUTPUT}
+
             console.log(totalDownloads);
 
-      - name: publish
+  publish-downloads-count-segment:
+    needs: get-all-releases-count
+    runs-on: ubuntu-latest
+    steps:
+      - name: send-event
         run: |
-          echo "toto"  
+            echo ${{ steps.get-all-releases-count.outputs.macOsCounts }}

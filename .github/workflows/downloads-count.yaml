@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      downloads-json: ${{ steps.process-downloads.outputs.downloads }}
+      downloads-json: ${{ steps.process-downloads.outputs }}
 
     steps:
       - uses: actions/github-script@v6
@@ -65,7 +65,7 @@ jobs:
             console.log(totalDownloads);
 
             //return value to be used in next step
-            return JSON.stringify(totalDownloads);
+            return totalDownloads;
           
 
   publish-downloads-count-segment:
@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: send-event
         run: |
-            echo "${{steps.process-downloads.outputs.result}}"
+            echo "${{needs.get-all-releases-count.outputs.downloads-json}}"
             curl https://api.segment.io/v1/track \
             -X POST \
             -H 'Content-Type: application/json' \

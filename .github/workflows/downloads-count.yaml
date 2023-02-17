@@ -8,6 +8,10 @@ jobs:
   get-all-releases-count:
     runs-on: ubuntu-latest
 
+    outputs:
+      myOutput: ${{ steps.process-downloads.outputs.myOutput }}
+      myOutput2: ${{ steps.process-downloads.outputs.myOutput2 }}
+
     steps:
       - uses: actions/github-script@v6
         id: process-downloads
@@ -65,7 +69,7 @@ jobs:
             console.log(output);
             core.setOutput('myOutput', output);
 
-            console.log("{MAC}={555}") >> $GITHUB_OUTPUT
+            //console.log("{MAC}={555}") >> $GITHUB_OUTPUT
 
             const output2 = '2222Hello, world!';
             console.log(output2);
@@ -78,14 +82,18 @@ jobs:
   publish-downloads-count-segment:
     needs: get-all-releases-count
     runs-on: ubuntu-latest
+    env:
+      SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY }}
+      OUTPUT: ${{ needs.get-all-releases-count.outputs.myOutput }}
+      OUTPUT2: ${{ needs.get-all-releases-count.outputs.myOutput2 }}
     steps:
       - name: send-event
         run: |
 
             # Do some work with the output from job1
-            echo "First output"
+            echo "First output  :::::"+ $OUTPUT
             echo "${{ needs.get-all-releases-count.outputs.myOutput }}"
-            echo "Second output"
+            echo "Second output  :::::"+ $OUTPUT2
             echo "${{ needs.get-all-releases-count.outputs.myOutput2 }}"
             echo "blabla"
             curl https://api.segment.io/v1/track \

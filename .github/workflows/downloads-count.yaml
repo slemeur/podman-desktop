@@ -65,6 +65,11 @@ jobs:
             console.log(output);
             core.setOutput('myOutput', output);
 
+            console.log("{MAC}={555}") >> $GITHUB_OUTPUT
+
+            const output2 = '2222Hello, world!';
+            console.log(output2);
+            console.log(`::set-output name=myOutput2::${output2}`);
 
             //return value to be used in next step
             return totalDownloads;
@@ -76,8 +81,12 @@ jobs:
     steps:
       - name: send-event
         run: |
+
             # Do some work with the output from job1
+            echo "First output"
             echo "${{ needs.get-all-releases-count.outputs.myOutput }}"
+            echo "Second output"
+            echo "${{ needs.get-all-releases-count.outputs.myOutput2 }}"
             echo "blabla"
             curl https://api.segment.io/v1/track \
             -X POST \

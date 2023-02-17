@@ -11,6 +11,7 @@ jobs:
     outputs:
       myOutput: ${{ steps.process-downloads.outputs.myOutput }}
       myOutput2: ${{ steps.process-downloads.outputs.myOutput2 }}
+      totalDownloads: ${{ steps.process-downloads.outputs.totalDownloads }}
 
     steps:
       - uses: actions/github-script@v6
@@ -64,6 +65,7 @@ jobs:
             $ALL_DOWNLOADS = totalMac + totalWin + totalLinux;
 
             console.log(totalDownloads);
+            console.log(`::set-output name=totalDownloads::${totalDownloads}`);
 
             const output = 'Hello, world!';
             console.log(output);
@@ -81,10 +83,10 @@ jobs:
       - name: send-event-4
         run: |
             # Do some work with the output from job1
-            echo "First output  :::::"+ $OUTPUT
             echo "${{ steps.process-downloads.outputs.myOutput }}"
-            echo "Second output  :::::"+ $OUTPUT2
             echo "${{ steps.process-downloads.outputs.myOutput2 }}"
+            echo "${{ steps.process-downloads.outputs.totalDownloads }}"
+
             echo "blabla"
             curl https://api.segment.io/v1/track \
             -X POST \

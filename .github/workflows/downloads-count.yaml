@@ -8,9 +8,6 @@ jobs:
   get-all-releases-count:
     runs-on: ubuntu-latest
 
-    outputs:
-      downloads-json: ${{ steps.process-downloads.outputs }}
-
     steps:
       - uses: actions/github-script@v6
         id: process-downloads

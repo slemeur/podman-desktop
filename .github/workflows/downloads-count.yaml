@@ -16,6 +16,9 @@ jobs:
       totalLinux: ${{ steps.process-downloads.outputs.totalLinux }}
       totalDownloads: ${{ steps.process-downloads.outputs.totalDownloads }}
 
+    env:
+      ACTION_STATE: green
+
     steps:
       - uses: actions/github-script@v6
         id: process-downloads

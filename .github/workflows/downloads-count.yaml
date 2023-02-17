@@ -64,6 +64,11 @@ jobs:
 
             console.log(totalDownloads);
 
+            const output = 'Hello, world!';
+            console.log(output);
+            core.setOutput('myOutput', output);
+
+
             //return value to be used in next step
             return totalDownloads;
           
@@ -74,6 +79,9 @@ jobs:
     steps:
       - name: send-event
         run: |
+            # Do some work with the output from job1
+            echo "${{ needs.get-all-releases-count.outputs.myOutput }}"
+            echo "blabla"
             echo "${{needs.get-all-releases-count.outputs.downloads-json}}"
             curl https://api.segment.io/v1/track \
             -X POST \

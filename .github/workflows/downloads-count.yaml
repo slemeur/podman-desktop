@@ -54,20 +54,19 @@ jobs:
 
             let totalDownloads = totalMac + totalWin + totalLinux;
 
+            // Export results as outputs
             console.log(`::set-output name=totalMac::${totalMac}`);
             console.log(`::set-output name=totalWin::${totalWin}`);
             console.log(`::set-output name=totalLinux::${totalLinux}`);
             console.log(`::set-output name=totalDownloads::${totalDownloads}`);
 
+            //test using environment variable
+            console.log(`action_state=yellow` >> process.env.GITHUB_ENV);
+
           
       - name: send-event-4
         run: |
-            # Do some work with the output from job1
-            echo "${{ steps.process-downloads.outputs.myOutput }}"
-            echo "${{ steps.process-downloads.outputs.myOutput2 }}"
-            echo "${{ steps.process-downloads.outputs.totalDownloads }}"
-
-            echo "blabla"
+            echo "${{ env.action_state }}"
             curl https://api.segment.io/v1/track \
             -X POST \
             -H 'Content-Type: application/json' \

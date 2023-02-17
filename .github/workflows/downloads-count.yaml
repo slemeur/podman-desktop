@@ -78,23 +78,13 @@ jobs:
             //return value to be used in next step
             return totalDownloads;
           
-
-  publish-downloads-count-segment:
-    needs: get-all-releases-count
-    runs-on: ubuntu-latest
-    env:
-      SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY }}
-      OUTPUT: ${{ needs.get-all-releases-count.outputs.myOutput }}
-      OUTPUT2: ${{ needs.get-all-releases-count.outputs.myOutput2 }}
-    steps:
-      - name: send-event
+      - name: send-event-4
         run: |
-
             # Do some work with the output from job1
             echo "First output  :::::"+ $OUTPUT
-            echo "${{ needs.get-all-releases-count.outputs.myOutput }}"
+            echo "${{ myOutput }}"
             echo "Second output  :::::"+ $OUTPUT2
-            echo "${{ needs.get-all-releases-count.outputs.myOutput2 }}"
+            echo "${{ myOutput2 }}"
             echo "blabla"
             curl https://api.segment.io/v1/track \
             -X POST \

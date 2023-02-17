@@ -65,7 +65,7 @@ jobs:
 
             //test using environment variable
             console.log('ACTION_STATE=yellow' >> process.env.GITHUB_ENV);
-            process.env.ACTION_STATE = yellow;
+            process.env.ACTION_STATE = 'yellow';
             const actionState = process.env.ACTION_STATE;
             console.log(`The action state is: ${actionState}`);
             

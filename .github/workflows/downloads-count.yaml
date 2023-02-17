@@ -61,9 +61,17 @@ jobs:
             console.log(`::set-output name=totalDownloads::${totalDownloads}`);
 
             //test using environment variable
-            console.log(`action_state=yellow` >> $GITHUB_ENV);
+            console.log(`ACTION_STATE=yellow` >> $GITHUB_ENV);
 
-            console.log(process.env.action_state);
+            const actionState = process.env.ACTION_STATE;
+            console.log(`The action state is: ${actionState}`);
+            
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_ENV, `ACTION_STATE3=blue\n`);
+
+            const actionState3 = process.env.ACTION_STATE3;
+            console.log(`3333The action state is: ${actionState3}`);
+
           
       - name: send-event-4
         run: |

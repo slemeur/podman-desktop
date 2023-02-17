@@ -65,6 +65,7 @@ jobs:
 
             //test using environment variable
             console.log('ACTION_STATE=yellow' >> process.env.GITHUB_ENV);
+            process.env.ACTION_STATE = yellow;
             const actionState = process.env.ACTION_STATE;
             console.log(`The action state is: ${actionState}`);
             
@@ -77,7 +78,7 @@ jobs:
           
       - name: send-event-4
         run: |
-            echo "${{ env.action_state }}"
+            echo "${{ env.ACTION_STATE }}"
             curl https://api.segment.io/v1/track \
             -X POST \
             -H 'Content-Type: application/json' \

@@ -61,7 +61,7 @@ jobs:
             console.log(`::set-output name=totalDownloads::${totalDownloads}`);
 
             //test using environment variable
-            console.log(`action_state=yellow` >> process.env.GITHUB_ENV);
+            console.log(`action_state=yellow` >> $GITHUB_ENV);
 
             console.log(process.env.action_state);
           

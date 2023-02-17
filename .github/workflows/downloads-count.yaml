@@ -7,6 +7,7 @@ on:
 env:
     ACTION_STATE: green
 
+
 jobs:
 
   get-all-releases-count:
@@ -62,11 +63,13 @@ jobs:
             console.log(`::set-output name=totalMac::${totalMac}`);
             console.log(`::set-output name=totalWin::${totalWin}`);
             console.log(`::set-output name=totalLinux::${totalLinux}`);
-            console.log(`::set-output name=totalDownloads::${totalDownloads}`);
+
+            core.exportVariable('totalDownloads', totalDownloads);
 
             //test using environment variable
             console.log('ACTION_STATE=yellow' >> process.env.GITHUB_ENV);
             process.env.ACTION_STATE = 'yellow';
+          
             const actionState = process.env.ACTION_STATE;
             console.log(`The action state is: ${actionState}`);
             

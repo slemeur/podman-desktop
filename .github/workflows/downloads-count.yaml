@@ -11,6 +11,9 @@ jobs:
     outputs:
       myOutput: ${{ steps.process-downloads.outputs.myOutput }}
       myOutput2: ${{ steps.process-downloads.outputs.myOutput2 }}
+      totalMac: ${{ steps.process-downloads.outputs.totalMac }}
+      totalWin: ${{ steps.process-downloads.outputs.totalWin }}
+      totalLinux: ${{ steps.process-downloads.outputs.totalLinux }}
       totalDownloads: ${{ steps.process-downloads.outputs.totalDownloads }}
 
     steps:
@@ -49,36 +52,13 @@ jobs:
                 })
             })
 
-            // Create json object with the total number of downloads for each platform
-            const totalDownloads = {
-                "mac": totalMac,
-                "windows": totalWin,
-                "linux": totalLinux,
-                "all": totalMac + totalWin + totalLinux
-            };
+            let totalDownloads = totalMac + totalWin + totalLinux;
 
-
-            
-            $MAC_DOWNLOADS = totalMac;
-            $WINDOWS_DOWNLOADS = totalWin;
-            $LINUX_DOWNLOADS = totalLinux;
-            $ALL_DOWNLOADS = totalMac + totalWin + totalLinux;
-
-            console.log(totalDownloads);
+            console.log(`::set-output name=totalMac::${totalMac}`);
+            console.log(`::set-output name=totalWin::${totalWin}`);
+            console.log(`::set-output name=totalLinux::${totalLinux}`);
             console.log(`::set-output name=totalDownloads::${totalDownloads}`);
 
-            const output = 'Hello, world!';
-            console.log(output);
-            core.setOutput('myOutput', output);
-
-            //console.log("{MAC}={555}") >> $GITHUB_OUTPUT
-
-            const output2 = '2222Hello, world!';
-            console.log(output2);
-            console.log(`::set-output name=myOutput2::${output2}`);
-
-            //return value to be used in next step
-            return totalDownloads;
           
       - name: send-event-4
         run: |
@@ -95,10 +75,10 @@ jobs:
               "userId": "gh-action",
               "event": "download-count",
                "properties": {
-                "mac": "76883",
-                "windows": "70646",
-                "linux": "16689",
-                "total": "164218"
+                "mac": "${{ steps.process-downloads.outputs.totalMac }}",
+                "windows": "${{ steps.process-downloads.outputs.totalWin }}",
+                "linux": "${{ steps.process-downloads.outputs.totalLinux }}",
+                "total": "${{ steps.process-downloads.outputs.totalDownloads }}"
               }
             }' \
             -u Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy

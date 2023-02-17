@@ -4,12 +4,6 @@ name: Downloads Count
 on:
   workflow_dispatch:
 
-env:
-  MAC_DOWNLOADS: 220
-  WINDOWS_DOWNLOADS: 0
-  LINUX_DOWNLOADS: 0
-  ALL_DOWNLOADS: 0
-
 jobs:
   get-all-releases-count:
     runs-on: ubuntu-latest
@@ -83,4 +77,4 @@ jobs:
     steps:
       - name: send-event
         run: |
-            echo ${{ steps.get-all-releases-count.outputs.macOsCounts }}
+            echo "hello world"

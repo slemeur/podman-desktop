@@ -82,9 +82,9 @@ jobs:
         run: |
             # Do some work with the output from job1
             echo "First output  :::::"+ $OUTPUT
-            echo "${{ myOutput }}"
+            echo "${{ steps.process-downloads.outputs.myOutput }}"
             echo "Second output  :::::"+ $OUTPUT2
-            echo "${{ myOutput2 }}"
+            echo "${{ steps.process-downloads.outputs.myOutput2 }}"
             echo "blabla"
             curl https://api.segment.io/v1/track \
             -X POST \

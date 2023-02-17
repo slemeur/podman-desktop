@@ -65,4 +65,17 @@ jobs:
     steps:
       - name: send-event
         run: |
-            echo "hello world"
+            curl https://api.segment.io/v1/track \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "userId": "gh-action",
+              "event": "download-count",
+               "properties": {
+                "mac": "76883",
+                "windows": "70646",
+                "linux": "16689",
+                "total": "164218"
+              }
+            }' \
+            -u Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy

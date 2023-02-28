@@ -2,24 +2,13 @@
 name: Downloads Count
 
 on:
-  workflow_dispatch:
-
-env:
-    ACTION_STATE: green
-
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
 
   get-all-releases-count:
     runs-on: ubuntu-latest
-
-    outputs:
-      myOutput: ${{ steps.process-downloads.outputs.myOutput }}
-      myOutput2: ${{ steps.process-downloads.outputs.myOutput2 }}
-      totalMac: ${{ steps.process-downloads.outputs.totalMac }}
-      totalWin: ${{ steps.process-downloads.outputs.totalWin }}
-      totalLinux: ${{ steps.process-downloads.outputs.totalLinux }}
-      totalDownloads: ${{ steps.process-downloads.outputs.totalDownloads }}
 
     steps:
       - uses: actions/github-script@v6

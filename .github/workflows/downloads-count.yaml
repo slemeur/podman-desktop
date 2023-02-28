@@ -84,7 +84,6 @@ jobs:
       - name: send-event-4
         run: |
             echo "${{ env.ACTION_STATE }}"
-            echo "${{ process.env.totalDownloads }}"
             curl https://api.segment.io/v1/track \
             -X POST \
             -H 'Content-Type: application/json' \

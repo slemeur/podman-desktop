@@ -59,28 +59,12 @@ jobs:
 
             let totalDownloads = totalMac + totalWin + totalLinux;
 
-            // Export results as outputs
-            console.log(`::set-output name=totalMac::${totalMac}`);
-            console.log(`::set-output name=totalWin::${totalWin}`);
-            console.log(`::set-output name=totalLinux::${totalLinux}`);
-
-            //const core = require('@actions/core');
+            // Export results as environment variables
             core.exportVariable('totalDownloads', totalDownloads);
-
-            //test using environment variable
-            console.log('ACTION_STATE=yellow' >> process.env.GITHUB_ENV);
-            process.env.ACTION_STATE = 'yellow';
-          
-            const actionState = process.env.ACTION_STATE;
-            console.log(`The action state is: ${actionState}`);
-            
-            const fs = require('fs');
-            fs.appendFileSync(process.env.GITHUB_ENV, `ACTION_STATE3=blue\n`);
-
-            const actionState3 = process.env.ACTION_STATE3;
-            console.log(`3333The action state is: ${actionState3}`);
-
-          
+            core.exportVariable('totalMac', totalMac);
+            core.exportVariable('totalWin', totalWin);
+            core.exportVariable('totalLinux', totalLinux);
+        
       - name: send-event-4
         run: |
             echo "${{ env.ACTION_STATE3 }}"
@@ -93,10 +77,10 @@ jobs:
               "userId": "gh-action",
               "event": "download-count",
                "properties": {
-                "mac": "${{ steps.process-downloads.outputs.totalMac }}",
-                "windows": "${{ steps.process-downloads.outputs.totalWin }}",
-                "linux": "${{ steps.process-downloads.outputs.totalLinux }}",
-                "total": "${{ steps.process-downloads.outputs.totalDownloads }}"
+                "mac": "${{ env.totalMac }}",
+                "windows": "${{ env.totalWin }}",
+                "linux": "${{ env.totalLinux }}",
+                "total": "${{ env.totalDownloads }}"
               }
             }' \
             -u Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy

@@ -1,9 +1,11 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
-import { filtered, searchPattern } from '../stores/containers';
+import { filtered, searchPattern, containersInfos } from '../stores/containers';
 
 import type { ContainerInfo } from '../../../main/src/plugin/api/container-info';
-import ContainerIcon from './ContainerIcon.svelte';
+import ContainerIcon from './images/ContainerIcon.svelte';
+import ContainerGroupIcon from './container/ContainerGroupIcon.svelte';
+import StatusIcon from './images/StatusIcon.svelte';
 import { router } from 'tinro';
 import { ContainerGroupInfoTypeUI, ContainerGroupInfoUI, ContainerInfoUI } from './container/ContainerInfoUI';
 import ContainerActions from './container/ContainerActions.svelte';
@@ -18,12 +20,15 @@ import type { Unsubscriber } from 'svelte/store';
 import NavPage from './ui/NavPage.svelte';
 import { faChevronDown, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import Fa from 'svelte-fa/src/fa.svelte';
-import ContainerGroupIcon from './container/ContainerGroupIcon.svelte';
+import ErrorMessage from './ui/ErrorMessage.svelte';
 import { podCreationHolder } from '../stores/creation-from-containers-store';
 import KubePlayButton from './kube/KubePlayButton.svelte';
+import Prune from './engine/Prune.svelte';
+import type { EngineInfoUI } from './engine/EngineInfoUI';
 
 const containerUtils = new ContainerUtils();
 let openChoiceModal = false;
+let enginesList: EngineInfoUI[];
 
 // groups of containers that will be displayed
 let containerGroups: ContainerGroupInfoUI[] = [];
@@ -140,10 +145,14 @@ async function deleteSelectedContainers() {
     bulkDeleteInProgress = true;
     await Promise.all(
       selectedContainers.map(async container => {
+        inProgressCallback(container, true);
         try {
           await window.deleteContainer(container.engineId, container.id);
         } catch (e) {
           console.log('error while removing container', e);
+          errorCallback(container, e);
+        } finally {
+          inProgressCallback(container, false);
         }
       }),
     );
@@ -178,15 +187,27 @@ onMount(async () => {
       return containerUtils.getContainerInfoUI(containerInfo);
     });
 
-    // multiple engines ?
-    const engineNamesArray = currentContainers.map(container => container.engineName);
-    // remove duplicates
-    const engineNames = [...new Set(engineNamesArray)];
-    if (engineNames.length > 1) {
+    // Map engineName, engineId and engineType from currentContainers to EngineInfoUI[]
+    const engines = currentContainers.map(container => {
+      return {
+        name: container.engineName,
+        id: container.engineId,
+      };
+    });
+
+    // Remove duplicates from engines by name
+    const uniqueEngines = engines.filter(
+      (engine, index, self) => index === self.findIndex(t => t.name === engine.name),
+    );
+
+    if (uniqueEngines.length > 1) {
       multipleEngines = true;
     } else {
       multipleEngines = false;
     }
+
+    // Set the engines to the global variable for the Prune functionality button
+    enginesList = uniqueEngines;
 
     // create groups
     const computedContainerGroups = containerUtils.getContainerGroups(currentContainers);
@@ -202,6 +223,7 @@ onMount(async () => {
             currentContainer => currentContainer.id === container.id,
           );
           if (matchingContainer) {
+            container.actionError = matchingContainer.actionError;
             container.selected = matchingContainer.selected;
           }
         });
@@ -239,6 +261,12 @@ function keydownChoice(e: KeyboardEvent) {
   }
 }
 
+function openGroupDetails(containerGroup: ContainerGroupInfoUI): void {
+  if (containerGroup.type === ContainerGroupInfoTypeUI.POD) {
+    router.goto(`/pods/podman/${encodeURI(containerGroup.name)}/${encodeURI(containerGroup.engineId)}/logs`);
+  }
+}
+
 function toggleCreateContainer(): void {
   openChoiceModal = !openChoiceModal;
 }
@@ -266,6 +294,25 @@ function toggleAllContainerGroups(value: boolean) {
   toggleContainers.forEach(group => group.containers.forEach(container => (container.selected = value)));
   containerGroups = toggleContainers;
 }
+
+function inProgressCallback(container: ContainerInfoUI, inProgress: boolean, state?: string): void {
+  container.actionInProgress = inProgress;
+  // reset error when starting task
+  if (inProgress) {
+    container.actionError = '';
+  }
+  if (state) {
+    container.state = state;
+  }
+
+  containerGroups = [...containerGroups];
+}
+
+function errorCallback(container: ContainerInfoUI, errorMessage: string): void {
+  container.actionError = errorMessage;
+  container.state = 'ERROR';
+  containerGroups = [...containerGroups];
+}
 </script>
 
 <NavPage
@@ -273,6 +320,10 @@ function toggleAllContainerGroups(value: boolean) {
   title="containers"
   subtitle="Hover over a container to view action buttons; click to open up full details.">
   <div slot="additional-actions" class="space-x-2 flex flex-nowrap">
+    <!-- Only show if there are containers-->
+    {#if $containersInfos.length > 0}
+      <Prune type="containers" engines="{enginesList}" />
+    {/if}
     <button on:click="{() => toggleCreateContainer()}" class="pf-c-button pf-m-primary" type="button">
       <span class="pf-c-button__icon pf-m-start">
         <i class="fas fa-plus-circle" aria-hidden="true"></i>
@@ -332,7 +383,7 @@ function toggleAllContainerGroups(value: boolean) {
               on:click="{event => toggleAllContainerGroups(event.currentTarget.checked)}"
               class="cursor-pointer invert hue-rotate-[218deg] brightness-75" /></th>
           <th class="text-center font-extrabold w-10 px-2">Status</th>
-          <th>Name</th>
+          <th class="w-10">Name</th>
           <th>Image</th>
           <th class="pl-4">Age</th>
           <th class="text-right pr-2">actions</th>
@@ -361,12 +412,17 @@ function toggleAllContainerGroups(value: boolean) {
                   class=" cursor-pointer invert hue-rotate-[218deg] brightness-75" />
               </td>
               <td class="flex flex-row justify-center h-12" title="{containerGroup.type}">
-                <ContainerGroupIcon containers="{containerGroup.containers}" />
+                <div class="grid place-content-center ml-3 mr-4">
+                  <ContainerGroupIcon containers="{containerGroup.containers}" />
+                </div>
               </td>
               <td class="whitespace-nowrap hover:cursor-pointer">
                 <div class="flex items-center text-sm text-gray-200 overflow-hidden text-ellipsis">
                   <div class="flex flex-col flex-nowrap">
-                    <div class="text-sm text-gray-200 overflow-hidden text-ellipsis" title="{containerGroup.type}">
+                    <div
+                      class="text-sm text-gray-200 overflow-hidden text-ellipsis"
+                      title="{containerGroup.type}"
+                      on:click="{() => openGroupDetails(containerGroup)}">
                       {containerGroup.name} ({containerGroup.type})
                     </div>
                     <div class="text-xs font-extra-light text-gray-500">
@@ -398,10 +454,11 @@ function toggleAllContainerGroups(value: boolean) {
                       name: containerGroup.name,
                       engineId: containerGroup.engineId,
                       engineName: containerGroup.engineName,
-                      humanCreationDate: containerGroup.humanCreationDate,
+                      age: containerGroup.humanCreationDate,
                       created: containerGroup.created,
                       selected: false,
                       containers: [],
+                      kind: 'podman',
                     }}"
                     dropdownMenu="{true}" />
                 {/if}
@@ -425,7 +482,9 @@ function toggleAllContainerGroups(value: boolean) {
                     class="cursor-pointer invert hue-rotate-[218deg] brightness-75" />
                 </td>
                 <td class="flex flex-row justify-center h-12">
-                  <ContainerIcon state="{container.state}" />
+                  <div class="grid place-content-center ml-3 mr-4">
+                    <StatusIcon icon="{ContainerIcon}" status="{container.state}" />
+                  </div>
                 </td>
                 <td
                   class="whitespace-nowrap hover:cursor-pointer group"
@@ -448,7 +507,7 @@ function toggleAllContainerGroups(value: boolean) {
                             {container.engineName}
                           </div>
                         {/if}
-                        <div class="pl-2 pr-2">{container.port}</div>
+                        <div class="pl-2 pr-2">{container.displayPort}</div>
                       </div>
                     </div>
                   </div>
@@ -471,7 +530,36 @@ function toggleAllContainerGroups(value: boolean) {
                   class="pl-6 text-right whitespace-nowrap {containerGroup.type === ContainerGroupInfoTypeUI.STANDALONE
                     ? 'rounded-tr-lg'
                     : ''} {index === containerGroup.containers.length - 1 ? 'rounded-br-lg' : ''}">
-                  <ContainerActions container="{container}" dropdownMenu="{true}" />
+                  <div class="flex w-full">
+                    <div class="flex items-center w-5">
+                      {#if container.actionInProgress}
+                        <svg
+                          class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+                          ></circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      {:else if container.actionError}
+                        <ErrorMessage error="{container.actionError}" icon />
+                      {:else}
+                        <div>&nbsp;</div>
+                      {/if}
+                    </div>
+                    <div class="text-right w-full">
+                      <ContainerActions
+                        errorCallback="{error => errorCallback(container, error)}"
+                        inProgressCallback="{(flag, state) => inProgressCallback(container, flag, state)}"
+                        container="{container}"
+                        dropdownMenu="{true}" />
+                    </div>
+                  </div>
                 </td>
               </tr>
             {/each}
@@ -483,10 +571,10 @@ function toggleAllContainerGroups(value: boolean) {
   </div>
 
   <div slot="empty" class="min-h-full">
-    {#if providerConnections.length > 0}
-      <ContainerEmptyScreen slot="empty" containers="{$filtered}" />
-    {:else}
-      <NoContainerEngineEmptyScreen slot="empty" />
+    {#if providerConnections.length === 0}
+      <NoContainerEngineEmptyScreen />
+    {:else if $filtered.length === 0}
+      <ContainerEmptyScreen />
     {/if}
   </div>
 </NavPage>

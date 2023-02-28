@@ -25,6 +25,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { v1 as dockerDesktopAPI } from '@docker/extension-api-client-types';
 
 import type { ImageInfo } from '../../main/src/plugin/api/image-info';
+import type { SimpleContainerInfo } from '../../main/src/plugin/api/container-info';
 import type { Dialog, OpenDialogResult } from '@docker/extension-api-client-types/dist/v1/dialog';
 import type { ExecStreamOptions, NavigationIntents, RequestConfig } from '@docker/extension-api-client-types/dist/v1';
 import { lines, parseJsonLines, parseJsonObject } from './exec-result-helper';
@@ -58,8 +59,8 @@ export class DockerExtensionPreload {
     return ipcInvoke('container-provider-registry:listImages', options);
   }
 
-  listContainers(options?: any): Promise<ImageInfo[]> {
-    return ipcInvoke('container-provider-registry:listContainers', options);
+  listContainers(options?: any): Promise<SimpleContainerInfo[]> {
+    return ipcInvoke('container-provider-registry:listSimpleContainers', options);
   }
 
   async exec(
@@ -69,12 +70,18 @@ export class DockerExtensionPreload {
     args: string[],
     execOptions?: dockerDesktopAPI.ExecOptions,
   ): Promise<dockerDesktopAPI.ExecResult> {
+    let command = cmd;
+    let _args = args;
+    if (process.env.FLATPAK_ID) {
+      _args = ['--host', cmd, ...args];
+      command = 'flatpak-spawn';
+    }
     const rawResult = await ipcRenderer.invoke(
       'docker-plugin-adapter:exec',
       extensionName,
       launcher,
-      cmd,
-      args,
+      command,
+      _args,
       execOptions,
     );
     if (rawResult.error) {
@@ -257,6 +264,9 @@ export class DockerExtensionPreload {
       viewDevEnvironments: async (): Promise<void> => {
         console.error('navigationIntents.viewDevEnvironments not implemented');
       },
+      viewContainerTerminal: async (id: string): Promise<void> => {
+        console.error('navigationIntents.viewContainerTerminal not implemented', id);
+      },
     };
 
     const desktopUI: dockerDesktopAPI.DesktopUI = { toast, dialog, navigate };
@@ -328,6 +338,7 @@ export class DockerExtensionPreload {
     const extension: dockerDesktopAPI.Extension = {
       vm: extensionVM,
       host: extensionHost,
+      image: '',
     };
 
     const docker: dockerDesktopAPI.Docker = {
@@ -343,7 +354,10 @@ export class DockerExtensionPreload {
       docker,
     };
 
-    const toastError = (error: Error) => console.error(error);
+    const toastError = (error: Error) => {
+      console.error(error);
+      ipcRenderer.invoke('docker-desktop-adapter:desktopUIToast', 'error', error?.toString());
+    };
     (result as any).toastError = toastError;
 
     return result;

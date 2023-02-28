@@ -3,10 +3,13 @@ import type { VolumeInfoUI } from './VolumeInfoUI';
 import { Route } from 'tinro';
 import { onMount } from 'svelte';
 import { volumeListInfos } from '../../stores/volumes';
+import VolumeIcon from '../images/VolumeIcon.svelte';
+import StatusIcon from '../images/StatusIcon.svelte';
 import VolumeActions from './VolumeActions.svelte';
 import { VolumeUtils } from './volume-utils';
 import VolumeDetailsSummary from '././VolumeDetailsSummary.svelte';
 import VolumeDetailsInspect from './VolumeDetailsInspect.svelte';
+import DetailsTab from '../ui/DetailsTab.svelte';
 
 export let volumeName: string;
 export let engineId: string;
@@ -30,7 +33,7 @@ onMount(() => {
 </script>
 
 {#if volume}
-  <Route path="/*" let:meta>
+  <Route path="/*">
     <div class="w-full h-full">
       <div class="flex h-full flex-col">
         <div class="flex w-full flex-row">
@@ -41,39 +44,22 @@ onMount(() => {
               <div class="text-xl mx-2 text-gray-400">></div>
               <div class="text-sm font-extralight text-gray-400">Volume Details</div>
             </div>
-            <div class="text-lg flex flex-row items-center">
-              <p class="mr-2">{volume.name}</p>
+            <div class="text-lg flex flex-row items-start pt-1">
+              <div class="pr-3 pt-1">
+                <StatusIcon icon="{VolumeIcon}" status="{volume.inUse ? 'USED' : 'UNUSED'}" />
+              </div>
+              <div class="text-lg flex flex-col">
+                <div class="mr-2">{volume.name}</div>
+                <div class="mr-2 pb-4 text-small text-gray-500">{volume.humanSize}</div>
+              </div>
             </div>
-            <div class="mr-2 pb-4 text-small text-gray-500">{volume.humanSize}</div>
 
             <section class="pf-c-page__main-tabs pf-m-limit-width">
               <div class="pf-c-page__main-body">
                 <div class="pf-c-tabs pf-m-page-insets" id="open-tabs-example-tabs-list">
                   <ul class="pf-c-tabs__list">
-                    <li
-                      class="pf-c-tabs__item"
-                      class:pf-m-current="{meta.url ===
-                        `/volumes/${encodeURI(volume.name)}/${encodeURI(volume.engineId)}/summary`}">
-                      <a
-                        href="/volumes/{encodeURI(volume.name)}/{encodeURI(volume.engineId)}/summary"
-                        class="pf-c-tabs__link"
-                        aria-controls="open-tabs-example-tabs-list-details-panel"
-                        id="open-tabs-example-tabs-list-details-link">
-                        <span class="pf-c-tabs__item-text">Summary</span>
-                      </a>
-                    </li>
-                    <li
-                      class="pf-c-tabs__item"
-                      class:pf-m-current="{meta.url ===
-                        `/volumes/${encodeURI(volume.name)}/${encodeURI(volume.engineId)}/inspect`}">
-                      <a
-                        href="/volumes/{encodeURI(volume.name)}/{encodeURI(volume.engineId)}/inspect"
-                        class="pf-c-tabs__link"
-                        aria-controls="open-tabs-example-tabs-list-yaml-panel"
-                        id="open-tabs-example-tabs-list-yaml-link">
-                        <span class="pf-c-tabs__item-text">Inspect</span>
-                      </a>
-                    </li>
+                    <DetailsTab title="Summary" url="summary" />
+                    <DetailsTab title="Inspect" url="inspect" />
                   </ul>
                 </div>
               </div>

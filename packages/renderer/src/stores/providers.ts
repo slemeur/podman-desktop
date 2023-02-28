@@ -25,7 +25,7 @@ export async function fetchProviders() {
   providerInfos.set(result);
   result.forEach(providerInfo => {
     // register only if none for this provider id
-    if (!updateProviderCallbacks.includes[providerInfo.internalId]) {
+    if (!updateProviderCallbacks.includes(providerInfo.internalId)) {
       window.onDidUpdateProviderStatus(providerInfo.internalId, () => {
         fetchProviders();
       });
@@ -62,6 +62,9 @@ window?.events.receive('provider-delete', () => {
   fetchProviders();
 });
 window?.events.receive('provider:update-status', () => {
+  fetchProviders();
+});
+window?.events.receive('provider:update-warnings', () => {
   fetchProviders();
 });
 window.addEventListener('system-ready', () => {

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 7
 ---
 
 # Troubleshooting
@@ -12,14 +12,15 @@ If you cannot find your issue here or in the documentation, please fill an issue
 
 #### System Requirements
 
-The tool connects to Podman using the socket on the host on macOS and on a named pipe on Windows. This is available only on podman 4.0.2+
+The tool connects to Podman using the socket on the host on macOS and on a named pipe on Windows.
+This is available only on Podman 4.0.2+
 So, please check your version and update.
 
 On Windows, the named pipe is `//./pipe/docker_engine` when Docker Desktop is not installed. It will be solved by https://github.com/containers/podman/issues/13502 / https://github.com/containers/podman/pull/13655. During that time, you may start Docker Desktop so the named pipe is the one expected.
 
 #### Check connection
 
-Check at least a podman machine is running on Windows & macOS:
+Check at least a Podman machine is running on Windows & macOS:
 
 ```bash
 podman machine list
@@ -65,7 +66,7 @@ which podman
 
 This returns the path where the Podman Engine would be installed. This would help determine further action. 
 
-For example, if you’re looking to completely uninstall Podman Engine from your system for a fresh installation, running `which podman` returns the exact path where Podman still exists. This could be the path where Podman Installer stores Podman Engine i.e. `/opt/podman`. Once you know the path, simply run-
+For example, if you’re looking to completely uninstall Podman Engine from your system for a fresh installation, running `which podman` returns the exact path where Podman still exists. This could be the path where Podman Installer stores Podman Engine i.e. `/opt/podman`. Once you know the path, run:
 
 ```sh
 sudo rm -rf /opt/podman
@@ -149,10 +150,51 @@ helper_binaries_dir=["/Users/user/example_directory"]
 
 **NOTE**: A pre-built binary will be added to the Podman release page so you do not have to build `podman-mac-helper`. An [issue is open for this](https://github.com/containers/podman/issues/16746).
 
+###  Warning about Docker compatibility mode
+
+
+#### Issue:
+
+When running the Podman provider, a warning shows regarding Docker compatibility mode on the dashboard:
+
+```sh
+⚠️ Docker Socket Compatibility: Podman is not emulating the default Docker socket path: '/var/run/docker.sock'. Docker-specific tools may not work. See troubleshooting page on podman-desktop.io for more information.
+```
+
+This may appear when either:
+* The Docker socket is not mounted correctly
+* Docker Desktop is also being ran at the same time 
+
+#### Solution:
+
+**On macOS:**
+
+1. Stop Docker Desktop (if install)
+2. Run the `podman-mac-helper` binary:
+
+    ```sh
+    sudo podman-mac-helper install
+    ```
+    for additional options please run the command:
+
+    ```sh
+    sudo podman-mac-helper install --help
+    ```
+
+3. Restart the Podman machine (the default Docker socket path will be recreated and Podman will emulate it)
+
+
+**On Linux / Windows:**
+
+1. Stop Docker Desktop (if installed)
+2. Restart the Podman machine (the default Docker socket path will be recreated and Podman will emulate it)
+
+*Note:* If Docker Desktop is started again, it will automatically re-alias the default Docker socket location and the Podman compatibilty warning will re-appear.
+
 
 ## Code Ready Containers
 
-- Check that podman preset is defined. (`crc config get preset`)
+- Check that Podman preset is defined. (`crc config get preset`)
 - Check that `crc` binary is available in the user PATH (`/usr/local/bin/crc`)
 - Check that `crc setup --check-only` is running without errors.
 
@@ -186,7 +228,7 @@ This will stop the Podman Machine for you.
 
 #### Issue
 
-If you are using an Apple Silicon and brew, you might encounter the following error when starting podman from podman desktop
+If you are using an Apple Silicon and brew, you might encounter the following error when starting Podman from Podman Desktop
 
 ```
 Error: qemu exited unexpectedly with exit code 1, stderr: qemu-system-x86_64: invalid accelerator hvf
@@ -196,15 +238,15 @@ qemu-system-x86_64: unable to find CPU model 'host'
 
 #### Explanation
 
-Podman machine is running as a x86_64 process and it could be due to a dual install of homebrew: one for x86_64 and one for arm64.
+Podman machine is running as a `x86_64` process and it could be due to a dual install of homebrew: one for `x86_64` and one for `arm64`.
 
 #### Solution
 
 You can
-1. Uninstall podman machine on your x86_64 brew install (e.g. from a terminal running under rosetta) `brew uninstall podman-machine`
-2. or uninstall brew x86_64 as most brew receipe have now arm64 support: follow [these instructions](https://github.com/homebrew/install#uninstall-homebrew) from a terminal running under rosetta
+1. Uninstall Podman machine on your `x86_64` brew install (for example from a terminal running under rosetta) `brew uninstall podman-machine`
+2. or uninstall brew `x86_64` as most brew receipe have now arm64 support: follow [these instructions](https://github.com/homebrew/install#uninstall-homebrew) from a terminal running under rosetta
 
-Then run a terminal in native mode (default) and install podman machine `brew install podman-machine`
+Then run a terminal in native mode (default) and install Podman machine `brew install podman-machine`
 
 Finally clean the poddman machine VMs that had been previously created, a create new ones.
 

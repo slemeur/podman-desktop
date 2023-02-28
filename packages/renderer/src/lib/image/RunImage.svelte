@@ -11,11 +11,17 @@ import { router, Route } from 'tinro';
 import type { NetworkInspectInfo } from '../../../../main/src/plugin/api/network-info';
 import type { ContainerInfoUI } from '../container/ContainerInfoUI';
 import { ContainerUtils } from '../container/container-utils';
+import { containersInfos } from '../../stores/containers';
+import ErrorMessage from '../ui/ErrorMessage.svelte';
 let image: ImageInfoUI;
 
 let imageInspectInfo: ImageInspectInfo;
 
 let containerName = '';
+let containerNameError = '';
+
+let invalidFields = false;
+
 let containerPortMapping: string[];
 let exposedPorts = [];
 let createError;
@@ -25,6 +31,7 @@ let restartPolicyMaxRetryCount = 1;
 // initialize with empty array
 let environmentVariables: { key: string; value: string }[] = [{ key: '', value: '' }];
 let volumeMounts: { source: string; target: string }[] = [{ source: '', target: '' }];
+let hostContainerPortMappings: { hostPort: string; containerPort: string }[] = [];
 
 // auto remove the container on exit
 let autoRemove: boolean = false;
@@ -170,6 +177,13 @@ async function startContainer() {
     ExposedPorts[port] = {};
   });
 
+  hostContainerPortMappings
+    .filter(pair => pair.hostPort && pair.containerPort)
+    .map(pair => {
+      PortBindings[pair.containerPort] = [{ HostPort: pair.hostPort }];
+      ExposedPorts[pair.containerPort] = {};
+    });
+
   const Env = environmentVariables
     // filter variables withouts keys
     .filter(env => env.key)
@@ -286,6 +300,14 @@ function deleteEnvVariable(index: number) {
   environmentVariables = environmentVariables.filter((_, i) => i !== index);
 }
 
+function addHostContainerPorts() {
+  hostContainerPortMappings = [...hostContainerPortMappings, { hostPort: '', containerPort: '' }];
+}
+
+function deleteHostContainerPorts(index: number) {
+  hostContainerPortMappings = hostContainerPortMappings.filter((_, i) => i !== index);
+}
+
 async function browseFolders(index: number) {
   // need to show the dialog to open a folder and then we update the source of the given index
   const result = await window.openFolderDialog('Select a directory to mount in the container');
@@ -340,6 +362,25 @@ function addExtraHost() {
 
 function deleteExtraHost(index: number) {
   extraHosts = extraHosts.filter((_, i) => i !== index);
+}
+
+// called when user change the container's name
+function checkContainerName(event: any) {
+  const containerValue = event.target.value;
+
+  // ok, now check if we already have a matching container: same name and same engine ID
+  const containerAlreadyExists = $containersInfos.find(
+    container =>
+      container.engineId === imageInspectInfo.engineId &&
+      container.Names.some(iteratingContainerName => iteratingContainerName === `/${containerValue}`),
+  );
+  if (containerAlreadyExists) {
+    containerNameError = `The name ${containerValue} already exists. Please choose another name or leave blank to generate a name.`;
+    invalidFields = true;
+  } else {
+    containerNameError = '';
+    invalidFields = false;
+  }
 }
 </script>
 
@@ -402,12 +443,15 @@ function deleteExtraHost(index: number) {
                   >Container name:</label>
                 <input
                   type="text"
+                  on:input="{event => checkContainerName(event)}"
                   bind:value="{containerName}"
                   name="modalContainerName"
                   id="modalContainerName"
                   placeholder="Leave blank to generate a name"
-                  class="w-full p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400" />
-
+                  class="w-full p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400 border  {containerNameError
+                    ? 'border-red-500'
+                    : 'border-zinc-900'}" />
+                <div class="h-1 text-sm text-red-500 text-xs">{containerNameError}</div>
                 <label for="volumes" class="pt-4 block mb-2 text-sm font-medium text-gray-300 dark:text-gray-300"
                   >Volumes:</label>
                 <!-- Display the list of volumes -->
@@ -449,7 +493,6 @@ function deleteExtraHost(index: number) {
                 <!-- add a label for each port-->
                 <label
                   for="modalContainerName"
-                  class:hidden="{exposedPorts.length === 0}"
                   class="pt-4 block mb-2 text-sm font-medium text-gray-300 dark:text-gray-300">Port mapping:</label>
                 {#each exposedPorts as port, index}
                   <div class="flex flex-row justify-center items-center w-full">
@@ -463,6 +506,33 @@ function deleteExtraHost(index: number) {
                   </div>
                 {/each}
 
+                <button
+                  class="pt-3 pb-2 outline-none text-sm rounded-sm bg-transparent placeholder-gray-400"
+                  on:click="{addHostContainerPorts}">
+                  <span class="pf-c-button__icon pf-m-start">
+                    <i class="fas fa-plus-circle"></i>
+                  </span>
+                  Add custom port mapping</button>
+                <!-- Display the list of existing hostContainerPortMappings -->
+                {#each hostContainerPortMappings as hostContainerPortMapping, index}
+                  <div class="flex flex-row justify-center items-center w-full py-1">
+                    <input
+                      type="text"
+                      bind:value="{hostContainerPortMapping.hostPort}"
+                      placeholder="Host Port"
+                      class="w-full p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400" />
+                    <input
+                      type="text"
+                      bind:value="{hostContainerPortMapping.containerPort}"
+                      placeholder="Container Port"
+                      class="ml-2 w-full p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400" />
+                    <button
+                      class="ml-2 p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400"
+                      on:click="{() => deleteHostContainerPorts(index)}">
+                      <Fa class="h-4 w-4 text-xl" icon="{faMinusCircle}" />
+                    </button>
+                  </div>
+                {/each}
                 <label
                   for="modalEnvironmentVariables"
                   class="pt-4 block mb-2 text-sm font-medium text-gray-300 dark:text-gray-300"
@@ -474,7 +544,7 @@ function deleteExtraHost(index: number) {
                       type="text"
                       bind:value="{environmentVariable.key}"
                       placeholder="Name"
-                      class="ml-2 w-full p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400" />
+                      class="w-full p-2 outline-none text-sm bg-zinc-900 rounded-sm text-gray-400 placeholder-gray-400" />
 
                     <input
                       type="text"
@@ -816,12 +886,15 @@ function deleteExtraHost(index: number) {
           </div>
 
           <div class="pt-2 border-zinc-600 border-t-2"></div>
-          <button on:click="{() => startContainer()}" class="w-full pf-c-button pf-m-primary pt-6">
+          <button
+            on:click="{() => startContainer()}"
+            class="w-full pf-c-button pf-m-primary pt-6"
+            disabled="{invalidFields}">
             <span class="pf-c-button__icon pf-m-start">
               <i class="fas fa-play" aria-hidden="true"></i>
             </span>
             Start Container</button>
-          <div class="py-2 text-red-500 text-sm {createError ? 'opacity-100' : 'opacity-0'}">{createError}</div>
+          <div class="py-2 text-sm"><ErrorMessage error="{createError}" /></div>
         </div>
       </div>
     </NavPage>

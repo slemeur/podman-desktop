@@ -197,7 +197,7 @@ export class DockerDesktopInstallation {
         );
 
         if (!foundMatchingImage) {
-          reportLog('not able to get pulled image');
+          event.reply('docker-desktop-plugin:install-error', logCallbackId, `Not able to find image ${imageName}`);
           return;
         }
 
@@ -291,6 +291,13 @@ export class DockerDesktopInstallation {
       'docker-desktop-plugin:delete',
       async (event: IpcMainInvokeEvent, extensionName: string): Promise<void> => {
         return this.contributionManager.deleteExtension(extensionName);
+      },
+    );
+
+    ipcMain.handle(
+      'docker-desktop-adapter:desktopUIToast',
+      async (_event: IpcMainInvokeEvent, type: string, message: string): Promise<void> => {
+        this.apiSender.send('toast:handler', { type, message });
       },
     );
   }

@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2022-2023 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,8 +51,15 @@ import type {
   ContainerCreateOptions as PodmanContainerCreateOptions,
 } from '../../main/src/plugin/dockerode/libpod-dockerode';
 import type { V1ConfigMap, V1NamespaceList, V1Pod, V1PodList, V1Service } from '@kubernetes/client-node';
+import type { Menu } from '../../main/src/plugin/menu-registry';
 
 export type DialogResultCallback = (openDialogReturnValue: Electron.OpenDialogReturnValue) => void;
+
+export interface FeedbackProperties {
+  rating: number;
+  comment?: string;
+  contact?: string;
+}
 
 // initialize extension loader mechanism
 function initExposure(): void {
@@ -638,6 +645,10 @@ function initExposure(): void {
     return ipcInvoke('provider-registry:getProviderInfos');
   });
 
+  contextBridge.exposeInMainWorld('getContributedMenus', async (context: string): Promise<Menu[]> => {
+    return ipcInvoke('menu-registry:getContributedMenus', context);
+  });
+
   let onDidUpdateProviderStatusId = 0;
   const onDidUpdateProviderStatuses = new Map<number, (providerInfo: ProviderInfo) => void>();
 
@@ -665,6 +676,12 @@ function initExposure(): void {
   contextBridge.exposeInMainWorld('getImageRegistries', async (): Promise<readonly containerDesktopAPI.Registry[]> => {
     return ipcInvoke('image-registry:getRegistries');
   });
+  contextBridge.exposeInMainWorld(
+    'getImageSuggestedRegistries',
+    async (): Promise<containerDesktopAPI.RegistrySuggestedProvider[]> => {
+      return ipcInvoke('image-registry:getSuggestedRegistries');
+    },
+  );
   contextBridge.exposeInMainWorld('getImageRegistryProviderNames', async (): Promise<string[]> => {
     return ipcInvoke('image-registry:getProviderNames');
   });
@@ -728,6 +745,10 @@ function initExposure(): void {
 
   contextBridge.exposeInMainWorld('startExtension', async (extensionId: string): Promise<void> => {
     return ipcInvoke('extension-loader:startExtension', extensionId);
+  });
+
+  contextBridge.exposeInMainWorld('removeExtension', async (extensionId: string): Promise<void> => {
+    return ipcInvoke('extension-loader:removeExtension', extensionId);
   });
 
   contextBridge.exposeInMainWorld('openExternal', async (link: string): Promise<void> => {
@@ -872,6 +893,37 @@ function initExposure(): void {
     },
   );
 
+  contextBridge.exposeInMainWorld(
+    'sendShowInputBoxValue',
+    async (inputBoxId: number, value: string | undefined, error: string | undefined): Promise<void> => {
+      return ipcInvoke('showInputBox:value', inputBoxId, value, error);
+    },
+  );
+
+  contextBridge.exposeInMainWorld(
+    'sendShowQuickPickValues',
+    async (quickPickId: number, selectedIndexes: number[]): Promise<void> => {
+      return ipcInvoke('showQuickPick:values', quickPickId, selectedIndexes);
+    },
+  );
+
+  contextBridge.exposeInMainWorld(
+    'sendShowInputBoxValidate',
+    async (
+      inputBoxId: number,
+      value: string,
+    ): Promise<string | containerDesktopAPI.InputBoxValidationMessage | undefined | null> => {
+      return ipcInvoke('showInputBox:validate', inputBoxId, value);
+    },
+  );
+
+  contextBridge.exposeInMainWorld(
+    'sendShowQuickPickOnSelect',
+    async (inputBoxId: number, selectedIndex: number): Promise<void> => {
+      return ipcInvoke('showQuickPick:onSelect', inputBoxId, selectedIndex);
+    },
+  );
+
   let onDataCallbacksShellInContainerDDExtensionInstallId = 0;
   const onDataCallbacksShellInContainerDDExtension = new Map<number, (data: string) => void>();
   const onDataCallbacksShellInContainerDDExtensionError = new Map<number, (data: string) => void>();
@@ -977,12 +1029,56 @@ function initExposure(): void {
     },
   );
 
+  contextBridge.exposeInMainWorld('kubernetesListPods', async (): Promise<PodInfo[]> => {
+    return ipcInvoke('kubernetes-client:listPods');
+  });
+
+  let onDataCallbacksKubernetesPodLogId = 0;
+  const onDataCallbacksKubernetesPodLog = new Map<number, (name: string, data: string) => void>();
+  contextBridge.exposeInMainWorld(
+    'kubernetesReadPodLog',
+    async (name: string, container: string, callback: (name: string, data: string) => void): Promise<void> => {
+      onDataCallbacksKubernetesPodLog.set(onDataCallbacksKubernetesPodLogId, callback);
+      return ipcInvoke('kubernetes-client:readPodLog', name, container, onDataCallbacksKubernetesPodLogId++);
+    },
+  );
+  ipcRenderer.on(
+    'kubernetes-client:readPodLog-onData',
+    (_, onDataCallbacksKubernetesReadPodLogId: number, name: string, data: string) => {
+      // grab callback from the map
+      const callback = onDataCallbacksKubernetesPodLog.get(onDataCallbacksKubernetesReadPodLogId);
+      if (callback) {
+        callback(name, data);
+      }
+    },
+  );
+
+  contextBridge.exposeInMainWorld('kubernetesDeletePod', async (name: string): Promise<void> => {
+    return ipcInvoke('kubernetes-client:deletePod', name);
+  });
+
   contextBridge.exposeInMainWorld(
     'openshiftCreateRoute',
     async (namespace: string, route: V1Route): Promise<V1Route> => {
       return ipcInvoke('openshift-client:createRoute', namespace, route);
     },
   );
+
+  contextBridge.exposeInMainWorld('pruneContainers', async (engine: string): Promise<string> => {
+    return ipcInvoke('container-provider-registry:pruneContainers', engine);
+  });
+
+  contextBridge.exposeInMainWorld('prunePods', async (engine: string): Promise<string> => {
+    return ipcInvoke('container-provider-registry:prunePods', engine);
+  });
+
+  contextBridge.exposeInMainWorld('pruneVolumes', async (engine: string): Promise<string> => {
+    return ipcInvoke('container-provider-registry:pruneVolumes', engine);
+  });
+
+  contextBridge.exposeInMainWorld('pruneImages', async (engine: string): Promise<string> => {
+    return ipcInvoke('container-provider-registry:pruneImages', engine);
+  });
 
   contextBridge.exposeInMainWorld('getOsPlatform', async (): Promise<string> => {
     return ipcInvoke('os:getPlatform');
@@ -994,6 +1090,61 @@ function initExposure(): void {
 
   contextBridge.exposeInMainWorld('getOsHostname', async (): Promise<string> => {
     return ipcInvoke('os:getHostname');
+  });
+
+  contextBridge.exposeInMainWorld('sendFeedback', async (feedback: FeedbackProperties): Promise<void> => {
+    return ipcInvoke('feedback:send', feedback);
+  });
+
+  let onDataCallbacksShellInContainerExtensionInstallId = 0;
+  const onDataCallbacksShellInContainerExtension = new Map<number, (data: string) => void>();
+  const onDataCallbacksShellInContainerExtensionError = new Map<number, (data: string) => void>();
+  const onDataCallbacksShellInContainerExtensionResolve = new Map<number, (value: void | PromiseLike<void>) => void>();
+
+  contextBridge.exposeInMainWorld(
+    'extensionInstallFromImage',
+    async (
+      imageName: string,
+      logCallback: (data: string) => void,
+      errorCallback: (data: string) => void,
+    ): Promise<void> => {
+      onDataCallbacksShellInContainerExtensionInstallId++;
+      onDataCallbacksShellInContainerExtension.set(onDataCallbacksShellInContainerExtensionInstallId, logCallback);
+      onDataCallbacksShellInContainerExtensionError.set(
+        onDataCallbacksShellInContainerExtensionInstallId,
+        errorCallback,
+      );
+      ipcRenderer.send(
+        'extension-installer:install-from-image',
+        imageName,
+        onDataCallbacksShellInContainerExtensionInstallId,
+      );
+
+      return new Promise(resolve => {
+        onDataCallbacksShellInContainerExtensionResolve.set(onDataCallbacksShellInContainerExtensionInstallId, resolve);
+      });
+    },
+  );
+
+  ipcRenderer.on('extension-installer:install-from-image-log', (_, callbackId: number, data: string) => {
+    const callback = onDataCallbacksShellInContainerExtension.get(callbackId);
+    if (callback) {
+      callback(data);
+    }
+  });
+
+  ipcRenderer.on('extension-installer:install-from-image-error', (_, callbackId: number, data: string) => {
+    const callback = onDataCallbacksShellInContainerExtensionError.get(callbackId);
+    if (callback) {
+      callback(data);
+    }
+  });
+
+  ipcRenderer.on('extension-installer:install-from-image-end', (_, callbackId: number) => {
+    const resolveCallback = onDataCallbacksShellInContainerExtensionResolve.get(callbackId);
+    if (resolveCallback) {
+      resolveCallback();
+    }
   });
 }
 

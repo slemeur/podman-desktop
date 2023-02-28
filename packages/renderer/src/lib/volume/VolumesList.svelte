@@ -11,13 +11,18 @@ import { VolumeUtils } from './volume-utils';
 import NoContainerEngineEmptyScreen from '../image/NoContainerEngineEmptyScreen.svelte';
 import VolumeEmptyScreen from './VolumeEmptyScreen.svelte';
 import VolumeActions from './VolumeActions.svelte';
-import VolumeIcon from './VolumeIcon.svelte';
+import VolumeIcon from '../images/VolumeIcon.svelte';
+import StatusIcon from '../images/StatusIcon.svelte';
+import Prune from '../engine/Prune.svelte';
+import moment from 'moment';
+import type { EngineInfoUI } from '../engine/EngineInfoUI';
 
 let searchTerm = '';
 $: searchPattern.set(searchTerm);
 
 let volumes: VolumeInfoUI[] = [];
 let multipleEngines = false;
+let enginesList: EngineInfoUI[];
 
 $: providerConnections = $providerInfos
   .map(provider => provider.containerConnections)
@@ -32,11 +37,11 @@ $: selectedAllCheckboxes = volumes.every(volume => volume.selected);
 
 let allChecked = false;
 
+const volumeUtils = new VolumeUtils();
+
 let volumesUnsubscribe: Unsubscriber;
 onMount(async () => {
   volumesUnsubscribe = filtered.subscribe(value => {
-    const volumeUtils = new VolumeUtils();
-
     // keep warnings
     const warningsPerEngine = new Map<string, string[]>();
     value.forEach(volumeListInfo => {
@@ -47,15 +52,24 @@ onMount(async () => {
       .flat()
       .map(volume => volumeUtils.toVolumeInfoUI(volume));
 
-    // multiple engines ?
-    const engineNamesArray = computedVolumes.map(container => container.engineName);
-    // remove duplicates
-    const engineNames = [...new Set(engineNamesArray)];
-    if (engineNames.length > 1) {
+    // Map engineName, engineId and engineType from currentContainers to EngineInfoUI[]
+    const engines = computedVolumes.map(container => {
+      return {
+        name: container.engineName,
+        id: container.engineId,
+      };
+    });
+    // Remove duplicates from engines by name
+    const uniqueEngines = engines.filter(
+      (engine, index, self) => index === self.findIndex(t => t.name === engine.name),
+    );
+    if (uniqueEngines.length > 1) {
       multipleEngines = true;
     } else {
       multipleEngines = false;
     }
+    // Set the engines to the global variable for the Prune functionality button
+    enginesList = uniqueEngines;
 
     // update selected items based on current selected items
     computedVolumes.forEach(volume => {
@@ -67,10 +81,18 @@ onMount(async () => {
       }
     });
     volumes = computedVolumes;
+
+    // compute refresh interval
+    const interval = computeInterval();
+    refreshTimeouts.push(setTimeout(refreshAge, interval));
   });
 });
 
 onDestroy(() => {
+  // kill timers
+  refreshTimeouts.forEach(timeout => clearTimeout(timeout));
+  refreshTimeouts.length = 0;
+
   // unsubscribe from the store
   if (volumesUnsubscribe) {
     volumesUnsubscribe();
@@ -107,13 +129,62 @@ async function deleteSelectedVolumes() {
 function openDetailsVolume(volume: VolumeInfoUI) {
   router.goto(`/volumes/${encodeURI(volume.name)}/${encodeURI(volume.engineId)}/summary`);
 }
+
+let refreshTimeouts: NodeJS.Timeout[] = [];
+const SECOND = 1000;
+function refreshAge() {
+  volumes = volumes.map(volumeInfo => {
+    return { ...volumeInfo, age: volumeUtils.refreshAge(volumeInfo) };
+  });
+
+  // compute new interval
+  const newInterval = computeInterval();
+  refreshTimeouts.forEach(timeout => clearTimeout(timeout));
+  refreshTimeouts.length = 0;
+  refreshTimeouts.push(setTimeout(refreshAge, newInterval));
+}
+
+function computeInterval(): number {
+  // no volumes, no refresh
+  if (volumes.length === 0) {
+    return -1;
+  }
+
+  // do we have volumes that have been created in less than 1 minute
+  // if so, need to update every second
+  const volumesCreatedInLessThan1Mn = volumes.filter(volume => moment().diff(volume.created, 'minutes') < 1);
+  if (volumesCreatedInLessThan1Mn.length > 0) {
+    return 2 * SECOND;
+  }
+
+  // every minute for images created less than 1 hour
+  const volumesCreatedInLessThan1Hour = volumes.filter(volume => moment().diff(volume.created, 'hours') < 1);
+  if (volumesCreatedInLessThan1Hour.length > 0) {
+    // every minute
+    return 60 * SECOND;
+  }
+
+  // every hour for images created less than 1 day
+  const volumesCreatedInLessThan1Day = volumes.filter(volume => moment().diff(volume.created, 'days') < 1);
+  if (volumesCreatedInLessThan1Day.length > 0) {
+    // every hour
+    return 60 * 60 * SECOND;
+  }
+
+  // every day
+  return 60 * 60 * 24 * SECOND;
+}
 </script>
 
 <NavPage
   bind:searchTerm="{searchTerm}"
   title="volumes"
   subtitle="Hover over a volume to view action buttons; click to open up full details.">
-  <div slot="additional-actions" class="space-x-2 flex flex-nowrap"></div>
+  <div slot="additional-actions" class="space-x-2 flex flex-nowrap">
+    {#if $volumeListInfos.map(volumeInfo => volumeInfo.Volumes).flat().length > 0}
+      <Prune type="volumes" engines="{enginesList}" />
+    {/if}
+  </div>
 
   <div slot="bottom-additional-actions" class="flex flex-row justify-start items-center w-full">
     {#if selectedItemsNumber > 0}
@@ -155,9 +226,9 @@ function openDetailsVolume(volume: VolumeInfoUI) {
               bind:checked="{allChecked}"
               on:click="{event => toggleAllVolumes(event.currentTarget.checked)}"
               class="cursor-pointer invert hue-rotate-[218deg] brightness-75" /></th>
-          <th class="text-center font-extrabold w-10">status</th>
-          <th class="text-center font-extrabold w-10">Name</th>
-          <th class="text-center">Creation date</th>
+          <th class="text-center font-extrabold w-10 px-2">status</th>
+          <th class="w-10">Name</th>
+          <th class="px-6 whitespace-nowrap">age</th>
           <th class="px-6 whitespace-nowrap text-end">size</th>
           <th class="text-right pr-2">Actions</th>
         </tr>
@@ -178,7 +249,9 @@ function openDetailsVolume(volume: VolumeInfoUI) {
                 class="cursor-pointer invert hue-rotate-[218deg] brightness-75 " />
             </td>
             <td class="bg-zinc-900 group-hover:bg-zinc-700 flex flex-row justify-center h-12">
-              <VolumeIcon inUse="{volume.inUse}" />
+              <div class="grid place-content-center ml-3 mr-4">
+                <StatusIcon icon="{VolumeIcon}" status="{volume.inUse ? 'USED' : 'UNUSED'}" />
+              </div>
             </td>
             <td class="whitespace-nowrap w-10 hover:cursor-pointer" on:click="{() => openDetailsVolume(volume)}">
               <div class="flex items-center">
@@ -199,15 +272,15 @@ function openDetailsVolume(volume: VolumeInfoUI) {
             </td>
             <td class="px-6 py-2 whitespace-nowrap w-10">
               <div class="flex items-center">
-                <div class="ml-2 text-sm text-gray-200">{volume.humanCreationDate}</div>
+                <div class="text-sm text-gray-400">{volume.age}</div>
               </div>
             </td>
             <td class="px-6 py-2 whitespace-nowrap w-10">
               <div class="flex">
-                <div class="w-full text-right text-sm text-gray-200">{volume.humanSize}</div>
+                <div class="w-full text-right text-sm text-gray-400">{volume.humanSize}</div>
               </div>
             </td>
-            <td class="pl-6 text-right whitespace-nowrap rounded-tr-lg rounded-br-lg pr-1">
+            <td class="pl-6 text-right whitespace-nowrap rounded-tr-lg rounded-br-lg">
               <VolumeActions volume="{volume}" />
             </td>
           </tr>
@@ -217,10 +290,10 @@ function openDetailsVolume(volume: VolumeInfoUI) {
     </table>
   </div>
   <div slot="empty" class="min-h-full">
-    {#if providerConnections.length > 0}
-      <VolumeEmptyScreen volumes="{$filtered}" />
-    {:else}
+    {#if providerConnections.length === 0}
       <NoContainerEngineEmptyScreen />
+    {:else if $filtered.map(volumeInfo => volumeInfo.Volumes).flat().length === 0}
+      <VolumeEmptyScreen />
     {/if}
   </div>
 </NavPage>

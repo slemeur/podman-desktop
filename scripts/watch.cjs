@@ -71,7 +71,7 @@ const setupMainPackageWatcher = ({ config: { server } }) => {
         spawnProcess = null;
       }
 
-      spawnProcess = spawn(String(electronPath), ['.'], { env: { ...process.env, ELECTRON_IS_DEV: 1 } });
+      spawnProcess = spawn(String(electronPath), [ '--remote-debugging-port=9223', '.'], { env: { ...process.env, ELECTRON_IS_DEV: 1 } });
 
       spawnProcess.stdout.on('data', d => d.toString().trim() && logger.warn(d.toString(), { timestamp: true }));
       spawnProcess.stderr.on('data', d => {
@@ -152,17 +152,6 @@ const setupExtensionApiWatcher = name => {
 };
 
 (async () => {
-  // grab arguments
-  const args = process.argv.slice(2);
-  const generateTypesOnly = args.includes('--types-only');
-  // If types-only is passed, we don't watch for changes but only do generation
-  if (generateTypesOnly) {
-    delete sharedConfig.build.watch;
-    await setupPreloadPackageWatcher({ ws: undefined });
-    await setupPreloadDockerExtensionPackageWatcher({ ws: undefined });
-    return;
-  }
-
   try {
     const viteDevServer = await createServer({
       ...sharedConfig,
@@ -176,6 +165,7 @@ const setupExtensionApiWatcher = name => {
     await setupExtensionApiWatcher('lima');
     await setupExtensionApiWatcher('podman');
     await setupExtensionApiWatcher('kind');
+    await setupExtensionApiWatcher('registries');
     await setupPreloadPackageWatcher(viteDevServer);
     await setupPreloadDockerExtensionPackageWatcher(viteDevServer);
     await setupMainPackageWatcher(viteDevServer);

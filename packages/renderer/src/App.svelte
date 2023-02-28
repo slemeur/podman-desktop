@@ -1,5 +1,4 @@
 <script lang="ts">
-import 'ninja-keys';
 import './app.css';
 import '@patternfly/patternfly/patternfly.css';
 import '@patternfly/patternfly/patternfly-addons.css';
@@ -9,10 +8,9 @@ import { Route, router } from 'tinro';
 
 import ContainerList from './lib/ContainerList.svelte';
 import { onMount } from 'svelte';
-import ExtensionList from './lib/ExtensionList.svelte';
 import ImagesList from './lib/ImagesList.svelte';
 import ProviderList from './lib/ProviderList.svelte';
-import Logo from './lib/logo/Logo.svelte';
+import Logo from './lib/images/Logo.svelte';
 import PreferencesPage from './lib/preferences/PreferencesPage.svelte';
 import BuildImageFromContainerfile from './lib/image/BuildImageFromContainerfile.svelte';
 import PullImage from './lib/image/PullImage.svelte';
@@ -20,7 +18,7 @@ import DockerExtension from './lib/docker-extension/DockerExtension.svelte';
 import ContainerDetails from './lib/ContainerDetails.svelte';
 import { providerInfos } from './stores/providers';
 import type { ProviderInfo } from '../../main/src/plugin/api/provider-info';
-import WelcomePage from './lib/welcome/WelcomePage.svelte';
+import DashboardPage from './lib/dashboard/DashboardPage.svelte';
 import HelpPage from './lib/help/HelpPage.svelte';
 import StatusBar from './lib/statusbar/StatusBar.svelte';
 import ImageDetails from './lib/image/ImageDetails.svelte';
@@ -34,6 +32,9 @@ import PodDetails from './lib/pod/PodDetails.svelte';
 import PodCreateFromContainers from './lib/pod/PodCreateFromContainers.svelte';
 import DeployPodToKube from './lib/pod/DeployPodToKube.svelte';
 import RunImage from './lib/image/RunImage.svelte';
+import SendFeedback from './lib/feedback/SendFeedback.svelte';
+import ToastHandler from './lib/toast/ToastHandler.svelte';
+import QuickPickInput from './lib/dialogs/QuickPickInput.svelte';
 
 router.mode.hash();
 
@@ -66,15 +67,13 @@ window.events?.receive('display-help', () => {
 
 <Route path="/*" breadcrumb="Home" let:meta>
   <main class="min-h-screen flex flex-col h-screen bg-zinc-900">
-    <ninja-keys id="command-palette" placeholder="" openHotkey="F1" hideBreadcrumbs class="dark"></ninja-keys>
-
     <header id="navbar" class="text-gray-400 bg-zinc-900 body-font" style="-webkit-app-region: drag;">
       <div class="flex mx-auto flex-row p-2 items-center">
         <div class="flex lg:w-2/5 flex-1 items-center text-base ml-auto"></div>
         <div
           class="flex order-none title-font font-medium items-center text-white align-middle justify-center mb-4 md:mb-0">
           <Logo />
-          <span class="ml-3 text-xl block text-gray-300">Podman Desktop</span>
+          <span class="select-none ml-3 text-xl block text-gray-300">Podman Desktop</span>
         </div>
         <div class="lg:w-2/5 flex-1 lg:justify-end ml-5 lg:ml-0"></div>
       </div>
@@ -88,8 +87,11 @@ window.events?.receive('display-help', () => {
       {/if}
 
       <div class="z-0 w-full h-full bg-zinc-800 flex flex-col overflow-y-scroll">
+        <SendFeedback />
+        <ToastHandler />
+        <QuickPickInput />
         <Route path="/">
-          <WelcomePage />
+          <DashboardPage />
         </Route>
         <Route path="/containers">
           <ContainerList searchTerm="{meta.query.filter || ''}" />
@@ -128,8 +130,11 @@ window.events?.receive('display-help', () => {
             resourceId="{decodeURI(meta.params.resourceId)}"
             engineId="{decodeURI(meta.params.engineId)}" />
         </Route>
-        <Route path="/pods/:name/:engineId/*" let:meta>
-          <PodDetails podName="{decodeURI(meta.params.name)}" engineId="{decodeURI(meta.params.engineId)}" />
+        <Route path="/pods/:kind/:name/:engineId/*" let:meta>
+          <PodDetails
+            podName="{decodeURI(meta.params.name)}"
+            engineId="{decodeURI(meta.params.engineId)}"
+            kind="{decodeURI(meta.params.kind)}" />
         </Route>
         <Route path="/pod-create-from-containers">
           <PodCreateFromContainers />
@@ -139,10 +144,6 @@ window.events?.receive('display-help', () => {
         </Route>
         <Route path="/volumes/:name/:engineId/*" let:meta>
           <VolumeDetails volumeName="{decodeURI(meta.params.name)}" engineId="{decodeURI(meta.params.engineId)}" />
-        </Route>
-
-        <Route path="/extensions">
-          <ExtensionList />
         </Route>
         <Route path="/providers">
           <ProviderList />

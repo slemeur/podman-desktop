@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2022-2023 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import type {
 } from './api/provider-info';
 import type { WebContents } from 'electron';
 import { ipcMain, BrowserWindow } from 'electron';
-import type { ContainerCreateOptions, ContainerInfo } from './api/container-info';
+import type { ContainerCreateOptions, ContainerInfo, SimpleContainerInfo } from './api/container-info';
 import type { ImageInfo } from './api/image-info';
 import type { PullEvent } from './api/pull-event';
 import type { ExtensionInfo } from './api/extension-info';
@@ -48,6 +48,7 @@ import { shell } from 'electron';
 import type { ImageInspectInfo } from './api/image-inspect-info';
 import type { TrayMenu } from '../tray-menu';
 import { getFreePort } from './util/port';
+import { isMac } from '../util';
 import { Dialogs } from './dialog-impl';
 import { ProgressImpl } from './progress-impl';
 import type { ContributionInfo } from './api/contribution-info';
@@ -69,9 +70,10 @@ import type {
   PodCreateOptions,
   ContainerCreateOptions as PodmanContainerCreateOptions,
 } from './dockerode/libpod-dockerode';
-
+import type Dockerode from 'dockerode';
 import { AutostartEngine } from './autostart-engine';
 import { CloseBehavior } from './close-behavior';
+import { TrayIconColor } from './tray-icon-color';
 import { KubernetesClient } from './kubernetes-client';
 import type { V1Pod, V1ConfigMap, V1NamespaceList, V1PodList, V1Service } from '@kubernetes/client-node';
 import type { V1Route } from './api/openshift-types';
@@ -79,6 +81,11 @@ import type { NetworkInspectInfo } from './api/network-info';
 import { FilesystemMonitoring } from './filesystem-monitoring';
 import { Certificates } from './certificates';
 import { Proxy } from './proxy';
+import { EditorInit } from './editor-init';
+import { ExtensionInstaller } from './install/extension-installer';
+import { InputQuickPickRegistry } from './input-quickpick/input-quickpick-registry';
+import type { Menu } from '/@/plugin/menu-registry';
+import { MenuRegistry } from '/@/plugin/menu-registry';
 
 type LogType = 'log' | 'warn' | 'trace' | 'debug' | 'error';
 export class PluginSystem {
@@ -255,6 +262,7 @@ export class PluginSystem {
     await proxy.init();
 
     const commandRegistry = new CommandRegistry();
+    const menuRegistry = new MenuRegistry();
     const certificates = new Certificates();
     await certificates.init();
     const imageRegistry = new ImageRegistry(apiSender, telemetry, certificates, proxy);
@@ -262,12 +270,20 @@ export class PluginSystem {
     const providerRegistry = new ProviderRegistry(apiSender, containerProviderRegistry, telemetry);
     const trayMenuRegistry = new TrayMenuRegistry(this.trayMenu, commandRegistry, providerRegistry, telemetry);
     const statusBarRegistry = new StatusBarRegistry(apiSender);
+    const inputQuickPickRegistry = new InputQuickPickRegistry(apiSender);
     const fileSystemMonitoring = new FilesystemMonitoring();
 
-    const kubernetesClient = new KubernetesClient(configurationRegistry, fileSystemMonitoring);
+    const kubernetesClient = new KubernetesClient(apiSender, configurationRegistry, fileSystemMonitoring);
     await kubernetesClient.init();
-    const closeBehaviorConfiguration = new CloseBehavior(configurationRegistry, providerRegistry);
+    const closeBehaviorConfiguration = new CloseBehavior(configurationRegistry);
     await closeBehaviorConfiguration.init();
+
+    // Don't show the tray icon options on Mac
+    if (!isMac()) {
+      const trayIconColor = new TrayIconColor(configurationRegistry, providerRegistry);
+      await trayIconColor.init();
+    }
+
     const autoStartConfiguration = new AutostartEngine(configurationRegistry, providerRegistry);
     await autoStartConfiguration.init();
 
@@ -279,6 +295,21 @@ export class PluginSystem {
 
     statusBarRegistry.setEntry('help', false, 0, undefined, 'Help', 'fa fa-question-circle', true, 'help', undefined);
 
+    statusBarRegistry.setEntry(
+      'feedback',
+      false,
+      0,
+      undefined,
+      'Share your feedback',
+      'fa fa-comment',
+      true,
+      'feedback',
+      undefined,
+    );
+    commandRegistry.registerCommand('feedback', () => {
+      apiSender.send('display-feedback', '');
+    });
+
     commandRegistry.registerCommand('help', () => {
       apiSender.send('display-help', '');
     });
@@ -286,8 +317,13 @@ export class PluginSystem {
     const terminalInit = new TerminalInit(configurationRegistry);
     terminalInit.init();
 
+    // init editor configuration
+    const editorInit = new EditorInit(configurationRegistry);
+    editorInit.init();
+
     this.extensionLoader = new ExtensionLoader(
       commandRegistry,
+      menuRegistry,
       providerRegistry,
       configurationRegistry,
       imageRegistry,
@@ -301,11 +337,16 @@ export class PluginSystem {
       fileSystemMonitoring,
       proxy,
       containerProviderRegistry,
+      inputQuickPickRegistry,
     );
+    await this.extensionLoader.init();
 
     const contributionManager = new ContributionManager(apiSender);
     this.ipcHandle('container-provider-registry:listContainers', async (): Promise<ContainerInfo[]> => {
       return containerProviderRegistry.listContainers();
+    });
+    this.ipcHandle('container-provider-registry:listSimpleContainers', async (): Promise<SimpleContainerInfo[]> => {
+      return containerProviderRegistry.listSimpleContainers();
     });
     this.ipcHandle('container-provider-registry:listImages', async (): Promise<ImageInfo[]> => {
       return containerProviderRegistry.listImages();
@@ -319,6 +360,13 @@ export class PluginSystem {
     this.ipcHandle('container-provider-registry:listVolumes', async (): Promise<VolumeListInfo[]> => {
       return containerProviderRegistry.listVolumes();
     });
+    this.ipcHandle(
+      'container-provider-registry:pruneVolumes',
+      async (_listener, engine: string): Promise<Dockerode.PruneVolumesInfo> => {
+        return containerProviderRegistry.pruneVolumes(engine);
+      },
+    );
+
     this.ipcHandle(
       'container-provider-registry:getVolumeInspect',
       async (_listener, engine: string, volumeName: string): Promise<VolumeInspectInfo> => {
@@ -460,6 +508,21 @@ export class PluginSystem {
     );
 
     this.ipcHandle(
+      'container-provider-registry:pruneContainers',
+      async (_listener, engine: string): Promise<Dockerode.PruneContainersInfo> => {
+        return containerProviderRegistry.pruneContainers(engine);
+      },
+    );
+
+    this.ipcHandle('container-provider-registry:prunePods', async (_listener, engine: string): Promise<void> => {
+      return containerProviderRegistry.prunePods(engine);
+    });
+
+    this.ipcHandle('container-provider-registry:pruneImages', async (_listener, engine: string): Promise<void> => {
+      return containerProviderRegistry.pruneImages(engine);
+    });
+
+    this.ipcHandle(
       'container-provider-registry:restartContainer',
       async (_listener, engine: string, containerId: string): Promise<void> => {
         return containerProviderRegistry.restartContainer(engine, containerId);
@@ -575,6 +638,10 @@ export class PluginSystem {
 
     this.ipcHandle('provider-registry:getProviderInfos', async (): Promise<ProviderInfo[]> => {
       return providerRegistry.getProviderInfos();
+    });
+
+    this.ipcHandle('menu-registry:getContributedMenus', async (_, context: string): Promise<Menu[]> => {
+      return menuRegistry.getContributedMenus(context);
     });
 
     this.ipcHandle(
@@ -704,9 +771,42 @@ export class PluginSystem {
       },
     );
 
+    this.ipcHandle(
+      'showInputBox:value',
+      async (_listener, id: number, value: string | undefined, error?: string): Promise<void> => {
+        return inputQuickPickRegistry.onInputBoxValueEntered(id, value, error);
+      },
+    );
+
+    this.ipcHandle('showQuickPick:values', async (_listener, id: number, indexes: number[]): Promise<void> => {
+      return inputQuickPickRegistry.onQuickPickValuesSelected(id, indexes);
+    });
+
+    this.ipcHandle(
+      'showInputBox:validate',
+      async (
+        _listener,
+        id: number,
+        value: string,
+      ): Promise<string | containerDesktopAPI.InputBoxValidationMessage | undefined | null> => {
+        return inputQuickPickRegistry.validate(id, value);
+      },
+    );
+
+    this.ipcHandle('showQuickPick:onSelect', async (_listener, id: number, selectedId: number): Promise<void> => {
+      return inputQuickPickRegistry.onDidSelectQuickPickItem(id, selectedId);
+    });
+
     this.ipcHandle('image-registry:getRegistries', async (): Promise<readonly containerDesktopAPI.Registry[]> => {
       return imageRegistry.getRegistries();
     });
+
+    this.ipcHandle(
+      'image-registry:getSuggestedRegistries',
+      async (): Promise<containerDesktopAPI.RegistrySuggestedProvider[]> => {
+        return imageRegistry.getSuggestedRegistries();
+      },
+    );
 
     this.ipcHandle('image-registry:hasAuthconfigForImage', async (_listener, imageName: string): Promise<boolean> => {
       if (imageName.indexOf(',') !== -1) {
@@ -801,6 +901,12 @@ export class PluginSystem {
       'extension-loader:startExtension',
       async (_listener: Electron.IpcMainInvokeEvent, extensionId: string): Promise<void> => {
         return this.extensionLoader.startExtension(extensionId);
+      },
+    );
+    this.ipcHandle(
+      'extension-loader:removeExtension',
+      async (_listener: Electron.IpcMainInvokeEvent, extensionId: string): Promise<void> => {
+        return this.extensionLoader.removeExtension(extensionId);
       },
     );
 
@@ -933,6 +1039,23 @@ export class PluginSystem {
       },
     );
 
+    this.ipcHandle('kubernetes-client:listPods', async (): Promise<PodInfo[]> => {
+      return kubernetesClient.listPods();
+    });
+
+    this.ipcHandle(
+      'kubernetes-client:readPodLog',
+      async (_listener, name: string, container: string, onDataId: number): Promise<void> => {
+        return kubernetesClient.readPodLog(name, container, (name: string, data: string) => {
+          this.getWebContentsSender().send('kubernetes-client:readPodLog-onData', onDataId, name, data);
+        });
+      },
+    );
+
+    this.ipcHandle('kubernetes-client:deletePod', async (_listener, name: string): Promise<void> => {
+      return kubernetesClient.deletePod(name);
+    });
+
     this.ipcHandle(
       'openshift-client:createRoute',
       async (_listener, namespace: string, route: V1Route): Promise<V1Route> => {
@@ -973,6 +1096,10 @@ export class PluginSystem {
       return kubernetesClient.getCurrentNamespace();
     });
 
+    this.ipcHandle('feedback:send', async (_listener, feedbackProperties: unknown): Promise<void> => {
+      return telemetry.sendFeedback(feedbackProperties);
+    });
+
     const dockerDesktopInstallation = new DockerDesktopInstallation(
       apiSender,
       containerProviderRegistry,
@@ -982,6 +1109,9 @@ export class PluginSystem {
 
     const dockerExtensionAdapter = new DockerPluginAdapter(contributionManager);
     dockerExtensionAdapter.init();
+
+    const extensionInstaller = new ExtensionInstaller(apiSender, containerProviderRegistry, this.extensionLoader);
+    await extensionInstaller.init();
 
     await contributionManager.init();
 

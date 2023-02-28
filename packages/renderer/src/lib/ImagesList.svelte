@@ -1,5 +1,5 @@
 <script lang="ts">
-import { filtered, searchPattern } from '../stores/images';
+import { filtered, searchPattern, imagesInfos } from '../stores/images';
 import { onDestroy, onMount } from 'svelte';
 import ImageEmptyScreen from './image/ImageEmptyScreen.svelte';
 
@@ -12,16 +12,21 @@ import { providerInfos } from '../stores/providers';
 import PushImageModal from './image/PushImageModal.svelte';
 import { ImageUtils } from './image/image-utils';
 import NavPage from './ui/NavPage.svelte';
-import ImageStatusIcon from './image/ImageStatusIcon.svelte';
+import ImageIcon from './images/ImageIcon.svelte';
+import StatusIcon from './images/StatusIcon.svelte';
 import type { Unsubscriber } from 'svelte/store';
 import { containersInfos } from '../stores/containers';
 import type { ContainerInfo } from '../../../main/src/plugin/api/container-info';
+import moment from 'moment';
+import Prune from './engine/Prune.svelte';
+import type { EngineInfoUI } from './engine/EngineInfoUI';
 
 let searchTerm = '';
 $: searchPattern.set(searchTerm);
 
 let images: ImageInfoUI[] = [];
 let multipleEngines = false;
+let enginesList: EngineInfoUI[];
 
 let pushImageModal = false;
 let pushImageModalImageInfo = undefined;
@@ -42,10 +47,9 @@ $: selectedItemsNumber = images.filter(image => image.selected).length;
 $: selectedAllCheckboxes = images.filter(image => !image.inUse).every(image => image.selected);
 
 let allChecked = false;
+const imageUtils = new ImageUtils();
 
 function updateImages() {
-  const imageUtils = new ImageUtils();
-
   const computedImages = storeImages
     .map((imageInfo: ImageInfo) => imageUtils.getImagesInfoUI(imageInfo, storeContainers))
     .flat();
@@ -61,18 +65,32 @@ function updateImages() {
   });
   images = computedImages;
 
-  // multiple engines ?
-  const engineNamesArray = images.map(image => image.engineName);
-  // remove duplicates
-  const engineNames = [...new Set(engineNamesArray)];
-  if (engineNames.length > 1) {
+  // Map engineName, engineId and engineType from currentContainers to EngineInfoUI[]
+  const engines = images.map(container => {
+    return {
+      name: container.engineName,
+      id: container.engineId,
+    };
+  });
+
+  // Remove duplicates from engines by name
+  const uniqueEngines = engines.filter((engine, index, self) => index === self.findIndex(t => t.name === engine.name));
+
+  if (uniqueEngines.length > 1) {
     multipleEngines = true;
   } else {
     multipleEngines = false;
   }
+
+  // Set the engines to the global variable for the Prune functionality button
+  enginesList = uniqueEngines;
+
+  // compute refresh interval
+  const interval = computeInterval();
+  refreshTimeouts.push(setTimeout(refreshAge, interval));
 }
 
-let imagessUnsubscribe: Unsubscriber;
+let imagesUnsubscribe: Unsubscriber;
 let containersUnsubscribe: Unsubscriber;
 let storeContainers: ContainerInfo[] = [];
 let storeImages: ImageInfo[] = [];
@@ -82,16 +100,20 @@ onMount(async () => {
     updateImages();
   });
 
-  imagessUnsubscribe = filtered.subscribe(value => {
+  imagesUnsubscribe = filtered.subscribe(value => {
     storeImages = value;
     updateImages();
   });
 });
 
 onDestroy(() => {
+  // kill timers
+  refreshTimeouts.forEach(timeout => clearTimeout(timeout));
+  refreshTimeouts.length = 0;
+
   // unsubscribe from the store
-  if (imagessUnsubscribe) {
-    imagessUnsubscribe();
+  if (imagesUnsubscribe) {
+    imagesUnsubscribe();
   }
   if (containersUnsubscribe) {
     containersUnsubscribe();
@@ -140,6 +162,51 @@ async function deleteSelectedImages() {
     bulkDeleteInProgress = false;
   }
 }
+
+let refreshTimeouts: NodeJS.Timeout[] = [];
+const SECOND = 1000;
+function refreshAge() {
+  images = images.map(imageInfo => {
+    return { ...imageInfo, age: imageUtils.refreshAge(imageInfo) };
+  });
+
+  // compute new interval
+  const newInterval = computeInterval();
+  refreshTimeouts.forEach(timeout => clearTimeout(timeout));
+  refreshTimeouts.length = 0;
+  refreshTimeouts.push(setTimeout(refreshAge, newInterval));
+}
+
+function computeInterval(): number {
+  // no images, no refresh
+  if (images.length === 0) {
+    return -1;
+  }
+
+  // do we have images that have been created in less than 1 minute
+  // if so, need to update every second
+  const imagesCreatedInLessThan1Mn = images.filter(image => moment().diff(moment.unix(image.createdAt), 'minutes') < 1);
+  if (imagesCreatedInLessThan1Mn.length > 0) {
+    return 2 * SECOND;
+  }
+
+  // every minute for images created less than 1 hour
+  const imagesCreatedInLessThan1Hour = images.filter(image => moment().diff(moment.unix(image.createdAt), 'hours') < 1);
+  if (imagesCreatedInLessThan1Hour.length > 0) {
+    // every minute
+    return 60 * SECOND;
+  }
+
+  // every hour for images created less than 1 day
+  const imagesCreatedInLessThan1Day = images.filter(image => moment().diff(moment.unix(image.createdAt), 'days') < 1);
+  if (imagesCreatedInLessThan1Day.length > 0) {
+    // every hour
+    return 60 * 60 * SECOND;
+  }
+
+  // every day
+  return 60 * 60 * 24 * SECOND;
+}
 </script>
 
 <NavPage
@@ -147,6 +214,9 @@ async function deleteSelectedImages() {
   title="images"
   subtitle="Hover over an image to view action buttons; click to open up full details.">
   <div slot="additional-actions" class="space-x-2 flex flex-nowrap">
+    {#if $imagesInfos.length > 0}
+      <Prune type="images" engines="{enginesList}" />
+    {/if}
     <button on:click="{() => gotoPullImage()}" class="pf-c-button pf-m-primary" type="button">
       <span class="pf-c-button__icon pf-m-start">
         <i class="fas fa-arrow-circle-down" aria-hidden="true"></i>
@@ -194,16 +264,16 @@ async function deleteSelectedImages() {
       <thead>
         <tr class="h-7 uppercase text-xs text-gray-500">
           <th class="whitespace-nowrap w-5"></th>
-          <th class="px-2 w-5"
-            ><input
+          <th class="px-2 w-5">
+            <input
               type="checkbox"
               indeterminate="{selectedItemsNumber > 0 && !selectedAllCheckboxes}"
               bind:checked="{allChecked}"
               on:click="{event => toggleAllImages(event.currentTarget.checked)}"
               class="cursor-pointer invert hue-rotate-[218deg] brightness-75" /></th>
-          <th class="text-center font-extrabold w-10">status</th>
-          <th class="text-center font-extrabold w-10">Name</th>
-          <th class="text-center">Creation date</th>
+          <th class="text-center font-extrabold w-10 px-2">status</th>
+          <th class="w-10">Name</th>
+          <th class="px-6 whitespace-nowrap w-10">age</th>
           <th class="px-6 whitespace-nowrap text-end">size</th>
           <th class="text-right pr-2">Actions</th>
         </tr>
@@ -223,8 +293,10 @@ async function deleteSelectedImages() {
                 title="{image.inUse ? 'Image is used by a container' : ''}"
                 class=" invert hue-rotate-[218deg] brightness-75 " />
             </td>
-            <td class="bg-zinc-900 group-hover:bg-zinc-700 flex flex-row justify-center h-12">
-              <ImageStatusIcon inUse="{image.inUse}" />
+            <td class="bg-zinc-900 group-hover:bg-zinc-700 flex flex-row justify-center content-center h-12">
+              <div class="grid place-content-center ml-3 mr-4">
+                <StatusIcon icon="{ImageIcon}" status="{image.inUse ? 'USED' : 'UNUSED'}" />
+              </div>
             </td>
             <td class="whitespace-nowrap  w-10 hover:cursor-pointer" on:click="{() => openDetailsImage(image)}">
               <div class="flex items-center">
@@ -249,16 +321,16 @@ async function deleteSelectedImages() {
             </td>
             <td class="px-6 py-2 whitespace-nowrap w-10">
               <div class="flex items-center">
-                <div class="ml-2 text-sm text-gray-200">{image.humanCreationDate}</div>
+                <div class="text-sm text-gray-400">{image.age}</div>
               </div>
             </td>
             <td class="px-6 py-2 whitespace-nowrap w-10">
               <div class="flex">
-                <div class="w-full text-right text-sm text-gray-200">{image.humanSize}</div>
+                <div class="w-full text-right text-sm text-gray-400">{image.humanSize}</div>
               </div>
             </td>
-            <td class="pl-6 text-right whitespace-nowrap rounded-tr-lg rounded-br-lg pr-1">
-              <ImageActions image="{image}" onPushImage="{handlePushImageModal}" />
+            <td class="pl-6 text-right whitespace-nowrap rounded-tr-lg rounded-br-lg">
+              <ImageActions image="{image}" onPushImage="{handlePushImageModal}" dropdownMenu="{true}" />
             </td>
           </tr>
           <tr><td class="leading-[8px]">&nbsp;</td></tr>
@@ -267,10 +339,10 @@ async function deleteSelectedImages() {
     </table>
   </div>
   <div slot="empty" class="min-h-full">
-    {#if providerConnections.length > 0}
-      <ImageEmptyScreen images="{$filtered}" />
-    {:else}
+    {#if providerConnections.length === 0}
       <NoContainerEngineEmptyScreen />
+    {:else if $filtered.length === 0}
+      <ImageEmptyScreen />
     {/if}
 
     {#if pushImageModal}

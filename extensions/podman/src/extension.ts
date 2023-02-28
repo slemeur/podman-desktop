@@ -23,17 +23,20 @@ import * as fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { RegistrySetup } from './registry-setup';
 
-import { isLinux, isMac, isWindows } from './util';
+import { getAssetsFolder, isLinux, isMac, isWindows } from './util';
 import { PodmanInstall } from './podman-install';
 import type { InstalledPodman } from './podman-cli';
 import { execPromise, getPodmanCli, getPodmanInstallation } from './podman-cli';
 import { PodmanConfiguration } from './podman-configuration';
 import { getDetectionChecks } from './detection-checks';
+import { getDisguisedPodmanInformation, getSocketPath, isDisguisedPodman } from './warnings';
 
 type StatusHandler = (name: string, event: extensionApi.ProviderConnectionStatus) => void;
 
 const listeners = new Set<StatusHandler>();
 const podmanMachineSocketsDirectoryMac = path.resolve(os.homedir(), '.local/share/containers/podman/machine');
+const podmanMachineSocketsSymlinkDirectoryMac = path.resolve(os.homedir(), '.podman');
+const MACOS_MAX_SOCKET_PATH_LENGTH = 104;
 let storedExtensionContext;
 let stopLoop = false;
 
@@ -41,6 +44,11 @@ let stopLoop = false;
 const podmanMachinesStatuses = new Map<string, extensionApi.ProviderConnectionStatus>();
 const podmanMachinesInfo = new Map<string, MachineInfo>();
 const currentConnections = new Map<string, extensionApi.Disposable>();
+
+// Warning to check to see if the socket is a disguised Podman socket,
+// by default we assume it is until proven otherwise when we check
+let isDisguisedPodmanSocket = true;
+let disguisedPodmanSocketWatcher: extensionApi.FileSystemWatcher;
 
 type MachineJSON = {
   Name: string;
@@ -108,10 +116,33 @@ async function updateMachines(provider: extensionApi.Provider): Promise<void> {
     connectionsToCreate.map(async machineName => {
       // podman.sock link
       let socketPath;
-      if (isMac) {
-        socketPath = path.resolve(podmanMachineSocketsDirectoryMac, machineName, 'podman.sock');
-      } else if (isWindows) {
-        socketPath = calcWinPipeName(machineName);
+      try {
+        if (isWindows()) {
+          socketPath = await execPromise(getPodmanCli(), [
+            'machine',
+            'inspect',
+            '--format',
+            '{{.ConnectionInfo.PodmanPipe.Path}}',
+            machineName,
+          ]);
+        } else {
+          socketPath = await execPromise(getPodmanCli(), [
+            'machine',
+            'inspect',
+            '--format',
+            '{{.ConnectionInfo.PodmanSocket.Path}}',
+            machineName,
+          ]);
+        }
+      } catch (error) {
+        console.debug('Podman extension:', 'Failed to read socketPath from machine inspect');
+      }
+      if (!socketPath) {
+        if (isMac()) {
+          socketPath = calcMacosSocketPath(machineName);
+        } else if (isWindows()) {
+          socketPath = calcWinPipeName(machineName);
+        }
       }
       await registerProviderFor(provider, podmanMachinesInfo.get(machineName), socketPath);
     }),
@@ -143,6 +174,15 @@ async function updateMachines(provider: extensionApi.Provider): Promise<void> {
       provider.updateStatus('configured');
     }
   }
+}
+
+function calcMacosSocketPath(machineName: string): string {
+  // max length for the path of a socket in macos is 104 chars
+  let socketPath = path.resolve(podmanMachineSocketsDirectoryMac, machineName, 'podman.sock');
+  if (socketPath.length > MACOS_MAX_SOCKET_PATH_LENGTH) {
+    socketPath = path.resolve(podmanMachineSocketsSymlinkDirectoryMac, machineName, 'podman.sock');
+  }
+  return socketPath;
 }
 
 function calcWinPipeName(machineName: string): string {
@@ -343,6 +383,13 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
   ];
 
   const provider = extensionApi.provider.createProvider(providerOptions);
+
+  // Check on initial setup
+  checkDisguisedPodmanSocket(provider);
+  // update the status of the provider if the socket is changed, created or deleted
+  disguisedPodmanSocketWatcher = setupDisguisedPodmanSocketWatcher(provider, getSocketPath());
+  extensionContext.subscriptions.push(disguisedPodmanSocketWatcher);
+
   // provide an installation path ?
   if (podmanInstall.isAbleToInstall()) {
     provider.registerInstallation({
@@ -356,7 +403,7 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
   registerUpdatesIfAny(provider, installedPodman, podmanInstall);
 
   // register autostart if enabled
-  if (isMac || isWindows) {
+  if (isMac() || isWindows()) {
     try {
       await updateMachines(provider);
     } catch (error) {
@@ -387,7 +434,7 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
   extensionContext.subscriptions.push(provider);
 
   // allows to create machines
-  if (isMac || isWindows) {
+  if (isMac() || isWindows()) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createFunction = async (params: { [key: string]: any }, logger: extensionApi.Logger): Promise<void> => {
       const parameters = [];
@@ -412,6 +459,26 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
         parameters.push(params['podman.factory.machine.diskSize']);
       }
 
+      // disk size
+      if (params['podman.factory.machine.image-path']) {
+        parameters.push('--image-path');
+        parameters.push(params['podman.factory.machine.image-path']);
+      } else if (isMac() || isWindows()) {
+        // check if we have an embedded asset for the image path for macOS or Windows
+        let suffix = '';
+        if (isWindows()) {
+          suffix = `-${process.arch}.tar.xz`;
+        } else if (isMac()) {
+          suffix = `-${process.arch}.qcow2.xz`;
+        }
+        const assetImagePath = path.resolve(getAssetsFolder(), `podman-image${suffix}`);
+        // check if the file exists and if it does, use it
+        if (fs.existsSync(assetImagePath)) {
+          parameters.push('--image-path');
+          parameters.push(assetImagePath);
+        }
+      }
+
       // name at the end
       if (params['podman.factory.machine.name']) {
         parameters.push(params['podman.factory.machine.name']);
@@ -428,14 +495,14 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
       if (proxyEnabled) {
         const proxySettings = extensionApi.proxy.getProxySettings();
         if (proxySettings?.httpProxy) {
-          if (isWindows) {
+          if (isWindows()) {
             env['env:http_proxy'] = proxySettings.httpProxy;
           } else {
             env['http_proxy'] = proxySettings.httpProxy;
           }
         }
         if (proxySettings?.httpsProxy) {
-          if (isWindows) {
+          if (isWindows()) {
             env['env:https_proxy'] = proxySettings.httpsProxy;
           } else {
             env['https_proxy'] = proxySettings.httpsProxy;
@@ -452,12 +519,12 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
   }
 
   // no podman for now, skip
-  if (isMac) {
+  if (isMac()) {
     if (!fs.existsSync(podmanMachineSocketsDirectoryMac)) {
       return;
     }
     monitorMachines(provider);
-  } else if (isLinux) {
+  } else if (isLinux()) {
     // on Linux, need to run the system service for unlimited time
     let command = 'podman';
     let args = ['system', 'service', '--time=0'];
@@ -492,12 +559,12 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
     });
     extensionContext.subscriptions.push(disposable);
     initDefaultLinux(provider);
-  } else if (isWindows) {
+  } else if (isWindows()) {
     monitorMachines(provider);
   }
 
   // monitor provider
-  // like version, checks
+  // like version, checks, warnings
   monitorProvider(provider);
 
   // register the registries
@@ -511,4 +578,61 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
 export function deactivate(): void {
   stopLoop = true;
   console.log('stopping podman extension');
+}
+
+function setupDisguisedPodmanSocketWatcher(
+  provider: extensionApi.Provider,
+  socketFile: string,
+): extensionApi.FileSystemWatcher {
+  // Monitor the socket file for any changes, creation or deletion
+  // and trigger a change if that happens
+
+  // Add the check to the listeners as well to make sure we check on podman status change as well
+  listeners.add(() => {
+    checkDisguisedPodmanSocket(provider);
+  });
+
+  let socketWatcher: extensionApi.FileSystemWatcher;
+  if (isLinux) {
+    socketWatcher = extensionApi.fs.createFileSystemWatcher(socketFile);
+  } else {
+    // watch parent directory
+    socketWatcher = extensionApi.fs.createFileSystemWatcher(path.dirname(socketFile));
+  }
+
+  // only trigger if the watched file is the socket file
+  const updateSocket = (uri: extensionApi.Uri) => {
+    if (uri.fsPath === socketFile) {
+      checkDisguisedPodmanSocket(provider);
+    }
+  };
+
+  socketWatcher.onDidChange(uri => {
+    updateSocket(uri);
+  });
+
+  socketWatcher.onDidCreate(uri => {
+    updateSocket(uri);
+  });
+
+  socketWatcher.onDidDelete(uri => {
+    updateSocket(uri);
+  });
+
+  return socketWatcher;
+}
+
+async function checkDisguisedPodmanSocket(provider: extensionApi.Provider) {
+  // Check to see if the socket is disguised or not. If it is, we'll push a warning up
+  // to the plugin library to the let the provider know that there is a warning
+  const disguisedCheck = await isDisguisedPodman();
+  if (isDisguisedPodmanSocket !== disguisedCheck) {
+    isDisguisedPodmanSocket = disguisedCheck;
+  }
+
+  // If isDisguisedPodmanSocket is true, we'll push a warning up to the plugin library with getDisguisedPodmanWarning()
+  // If isDisguisedPodmanSocket is false, we'll push an empty array up to the plugin library to clear the warning
+  // as we have no other warnings to display (or implemented)
+  const retrievedWarnings = isDisguisedPodmanSocket ? [] : [getDisguisedPodmanInformation()];
+  provider.updateWarnings(retrievedWarnings);
 }

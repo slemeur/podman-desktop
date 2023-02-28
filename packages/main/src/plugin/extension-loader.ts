@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2022-2023 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,9 @@ import { Uri } from './types/uri';
 import type { KubernetesClient } from './kubernetes-client';
 import type { Proxy } from './proxy';
 import type { ContainerProviderRegistry } from './container-registry';
+import type { InputQuickPickRegistry } from './input-quickpick/input-quickpick-registry';
+import { QuickPickItemKind, InputBoxValidationSeverity } from './input-quickpick/input-quickpick-registry';
+import type { MenuRegistry } from '/@/plugin/menu-registry';
 
 /**
  * Handle the loading of an extension
@@ -54,6 +57,7 @@ export interface AnalyzedExtension {
   // main entry
   mainPath: string;
   api: typeof containerDesktopAPI;
+  removable: boolean;
 }
 
 export interface ActivatedExtension {
@@ -68,10 +72,19 @@ export class ExtensionLoader {
 
   private activatedExtensions = new Map<string, ActivatedExtension>();
   private analyzedExtensions = new Map<string, AnalyzedExtension>();
-  private extensionsStoragePath = '';
+  private watcherExtensions = new Map<string, containerDesktopAPI.FileSystemWatcher>();
+  private reloadInProgressExtensions = new Map<string, boolean>();
+
+  // Plugins directory location
+  private pluginsDirectory = path.resolve(os.homedir(), '.local/share/podman-desktop/plugins');
+  private pluginsScanDirectory = path.resolve(os.homedir(), '.local/share/podman-desktop/plugins-scanning');
+
+  // Extensions directory location
+  private extensionsStorageDirectory = path.resolve(os.homedir(), '.local/share/podman-desktop/extensions-storage');
 
   constructor(
     private commandRegistry: CommandRegistry,
+    private menuRegistry: MenuRegistry,
     private providerRegistry: ProviderRegistry,
     private configurationRegistry: ConfigurationRegistry,
     private imageRegistry: ImageRegistry,
@@ -86,6 +99,7 @@ export class ExtensionLoader {
     private fileSystemMonitoring: FilesystemMonitoring,
     private proxy: Proxy,
     private containerProviderRegistry: ContainerProviderRegistry,
+    private inputQuickPickRegistry: InputQuickPickRegistry,
   ) {}
 
   async listExtensions(): Promise<ExtensionInfo[]> {
@@ -98,6 +112,7 @@ export class ExtensionLoader {
       state: this.activatedExtensions.get(extension.id) ? 'active' : 'inactive',
       id: extension.id,
       path: extension.path,
+      removable: extension.removable,
     }));
   }
 
@@ -137,25 +152,36 @@ export class ExtensionLoader {
     // extract to an existing directory
     zipper.sync.unzip(filePath).save(unpackedDirectory);
 
-    await this.loadExtension(unpackedDirectory);
+    await this.loadExtension(unpackedDirectory, true);
     this.apiSender.send('extension-started', {});
+  }
+
+  async init(): Promise<void> {
+    // create pluginsDirectory if it does not exist
+    if (!fs.existsSync(this.pluginsDirectory)) {
+      fs.mkdirSync(this.pluginsDirectory, { recursive: true });
+    }
+
+    if (!fs.existsSync(this.pluginsScanDirectory)) {
+      fs.mkdirSync(this.pluginsScanDirectory, { recursive: true });
+    }
   }
 
   async start() {
     // add watcher to the $HOME/podman-desktop
-    const pluginsDirectory = path.resolve(os.homedir(), '.local/share/podman-desktop/plugins');
-    if (fs.existsSync(pluginsDirectory)) {
+
+    if (fs.existsSync(this.pluginsScanDirectory)) {
       // add watcher
-      fs.watch(pluginsDirectory, (_, filename) => {
+      fs.watch(this.pluginsScanDirectory, (_, filename) => {
         // need to load the file
-        const packagedFile = path.resolve(pluginsDirectory, filename);
+        const packagedFile = path.resolve(this.pluginsScanDirectory, filename);
         setTimeout(() => this.loadPackagedFile(packagedFile), 1000);
       });
     }
 
-    this.extensionsStoragePath = path.resolve(os.homedir(), '.podman-desktop');
-    if (!fs.existsSync(this.extensionsStoragePath)) {
-      fs.mkdirSync(this.extensionsStoragePath);
+    // Create the extensions storage directory if it does not exist
+    if (!fs.existsSync(this.extensionsStorageDirectory)) {
+      fs.mkdirSync(this.extensionsStorageDirectory);
     }
 
     let folders;
@@ -168,7 +194,19 @@ export class ExtensionLoader {
       folders = await this.readDevelopmentFolders(path.join(__dirname, '../../../extensions'));
     }
     // ok now load all extensions from these folders
-    await Promise.all(folders.map(folder => this.loadExtension(folder)));
+    await Promise.all(folders.map(folder => this.loadExtension(folder, false)));
+
+    // also load extensions from the plugins directory
+    if (fs.existsSync(this.pluginsDirectory)) {
+      const pluginDirEntries = await fs.promises.readdir(this.pluginsDirectory, { withFileTypes: true });
+      // filter only directories ignoring node_modules directory
+      const pluginDirectories = pluginDirEntries
+        .filter(entry => entry.isDirectory())
+        .map(directory => this.pluginsDirectory + '/' + directory.name);
+
+      // ok now load all extensions from the pluginDirectory folders
+      await Promise.all(pluginDirectories.map(folder => this.loadExtension(folder, true)));
+    }
   }
 
   async readDevelopmentFolders(path: string): Promise<string[]> {
@@ -224,7 +262,35 @@ export class ExtensionLoader {
     }
   }
 
-  async loadExtension(extensionPath: string): Promise<void> {
+  protected async reloadExtension(extension: AnalyzedExtension, removable: boolean): Promise<void> {
+    const inProgress = this.reloadInProgressExtensions.get(extension.id);
+    if (inProgress) {
+      return;
+    }
+
+    console.log(`Extension ${extension.path} has been updated, reloading it`);
+    this.reloadInProgressExtensions.set(extension.id, true);
+
+    // unload the extension
+    await this.deactivateExtension(extension.id);
+
+    // reload the extension
+    try {
+      await this.loadExtension(extension.path, removable);
+    } catch (error) {
+      console.error('error while reloading extension', error);
+    } finally {
+      this.reloadInProgressExtensions.set(extension.id, false);
+    }
+  }
+
+  async loadExtension(extensionPath: string, removable: boolean): Promise<void> {
+    // do nothing if there is no package.json file
+    if (!fs.existsSync(path.resolve(extensionPath, 'package.json'))) {
+      console.warn(`Ignoring extension ${extensionPath} without package.json file`);
+      return;
+    }
+
     // load manifest
     const manifest = await this.loadManifest(extensionPath);
     this.overrideRequire();
@@ -238,6 +304,7 @@ export class ExtensionLoader {
       path: extensionPath,
       mainPath: path.resolve(extensionPath, manifest.main),
       api,
+      removable,
     };
 
     const extensionConfiguration = manifest?.contributes?.configuration;
@@ -250,8 +317,27 @@ export class ExtensionLoader {
       this.configurationRegistry.registerConfigurations([extensionConfiguration]);
     }
 
+    const menus = manifest?.contributes?.menus;
+    if (menus) {
+      this.menuRegistry.registerMenus(menus);
+    }
+
     this.analyzedExtensions.set(extension.id, extension);
-    const runtime = this.loadRuntime(extension.mainPath);
+
+    // in development mode, watch if the extension is updated and reload it
+    if (import.meta.env.DEV) {
+      if (!this.watcherExtensions.has(extension.id)) {
+        const extensionWatcher = this.fileSystemMonitoring.createFileSystemWatcher(extensionPath);
+        extensionWatcher.onDidChange(async () => {
+          // wait 1 second before trying to reload the extension
+          // this is to avoid reloading the extension while it is still being updated
+          setTimeout(() => this.reloadExtension(extension, removable), 1000);
+        });
+        this.watcherExtensions.set(extension.id, extensionWatcher);
+      }
+    }
+
+    const runtime = this.loadRuntime(extension);
 
     await this.activateExtension(extension, runtime);
   }
@@ -301,6 +387,9 @@ export class ExtensionLoader {
       onDidRegisterContainerConnection: (listener, thisArg, disposables) => {
         return providerRegistry.onDidRegisterContainerConnection(listener, thisArg, disposables);
       },
+      getContainerConnections: () => {
+        return providerRegistry.getContainerConnections();
+      },
     };
 
     const proxyInstance = this.proxy;
@@ -347,6 +436,10 @@ export class ExtensionLoader {
         return imageRegistry.registerRegistry(registry);
       },
 
+      suggestRegistry: (registry: containerDesktopAPI.RegistrySuggestedProvider): Disposable => {
+        return imageRegistry.suggestRegistry(registry);
+      },
+
       unregisterRegistry: (registry: containerDesktopAPI.Registry): void => {
         return imageRegistry.unregisterRegistry(registry);
       },
@@ -370,6 +463,7 @@ export class ExtensionLoader {
     const dialogs = this.dialogs;
     const progress = this.progress;
     const notifications = this.notifications;
+    const inputQuickPickRegistry = this.inputQuickPickRegistry;
     const windowObj: typeof containerDesktopAPI.window = {
       showInformationMessage: (message: string, ...items: string[]) => {
         return dialogs.showDialog('info', extManifest.name, message, items);
@@ -379,6 +473,20 @@ export class ExtensionLoader {
       },
       showErrorMessage: (message: string, ...items: string[]) => {
         return dialogs.showDialog('error', extManifest.name, message, items);
+      },
+
+      showInputBox: (options?: containerDesktopAPI.InputBoxOptions, token?: containerDesktopAPI.CancellationToken) => {
+        return inputQuickPickRegistry.showInputBox(options, token);
+      },
+
+      showQuickPick(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        items: readonly any[] | Promise<readonly any[]>,
+        options?: containerDesktopAPI.QuickPickOptions,
+        token?: containerDesktopAPI.CancellationToken,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ): Promise<any> {
+        return inputQuickPickRegistry.showQuickPick(items, options, token);
       },
 
       withProgress: <R>(
@@ -440,7 +548,7 @@ export class ExtensionLoader {
     const containerProviderRegistry = this.containerProviderRegistry;
     const containerEngine: typeof containerDesktopAPI.containerEngine = {
       listContainers(): Promise<containerDesktopAPI.ContainerInfo[]> {
-        return containerProviderRegistry.listContainers();
+        return containerProviderRegistry.listSimpleContainers();
       },
       inspectContainer(engineId: string, id: string): Promise<containerDesktopAPI.ContainerInspectInfo> {
         return containerProviderRegistry.getContainerInspect(engineId, id);
@@ -468,10 +576,12 @@ export class ExtensionLoader {
       StatusBarItemDefaultPriority,
       StatusBarAlignLeft,
       StatusBarAlignRight,
+      InputBoxValidationSeverity,
+      QuickPickItemKind,
     };
   }
 
-  loadRuntime(extensionPathFolder: string): NodeRequire {
+  loadRuntime(extension: AnalyzedExtension): NodeRequire {
     // cleaning the cache for all files of that plug-in.
     Object.keys(require.cache).forEach(function (key): void {
       const mod: NodeJS.Module | undefined = require.cache[key];
@@ -486,7 +596,7 @@ export class ExtensionLoader {
       while (i--) {
         const childMod: NodeJS.Module | undefined = mod?.children[i];
         // ensure the child module is not null, is in the plug-in folder, and is not a native module (see above)
-        if (childMod && childMod.id.startsWith(extensionPathFolder) && !childMod.id.endsWith('.node')) {
+        if (childMod && childMod.id.startsWith(extension.path) && !childMod.id.endsWith('.node')) {
           // cleanup exports - note that some modules (e.g. ansi-styles) define their
           // exports in an immutable manner, so overwriting the exports throws an error
           delete childMod.exports;
@@ -497,7 +607,7 @@ export class ExtensionLoader {
         }
       }
 
-      if (key.startsWith(extensionPathFolder)) {
+      if (key.startsWith(extension.path)) {
         // delete entry
         delete require.cache[key];
         const ix = mod?.parent?.children.indexOf(mod) || 0;
@@ -506,7 +616,7 @@ export class ExtensionLoader {
         }
       }
     });
-    return require(extensionPathFolder);
+    return require(extension.mainPath);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -529,7 +639,7 @@ export class ExtensionLoader {
 
     const extensionContext: containerDesktopAPI.ExtensionContext = {
       subscriptions,
-      storagePath: path.resolve(this.extensionsStoragePath, extension.id),
+      storagePath: path.resolve(this.extensionsStorageDirectory, extension.id),
     };
     let deactivateFunction = undefined;
     if (typeof extensionMain['deactivate'] === 'function') {
@@ -558,8 +668,8 @@ export class ExtensionLoader {
       }
 
       // dispose subscriptions
-      extension.extensionContext.subscriptions.forEach(subscription => {
-        subscription.dispose();
+      extension.extensionContext.subscriptions.forEach(async subscription => {
+        await subscription.dispose();
       });
 
       this.activatedExtensions.delete(extensionId);
@@ -575,11 +685,30 @@ export class ExtensionLoader {
   async startExtension(extensionId: string): Promise<void> {
     const extension = this.analyzedExtensions.get(extensionId);
     if (extension) {
-      await this.loadExtension(extension?.path);
+      await this.loadExtension(extension?.path, extension.removable);
+    }
+  }
+
+  async removeExtension(extensionId: string): Promise<void> {
+    const extension = this.analyzedExtensions.get(extensionId);
+    if (extension) {
+      await this.deactivateExtension(extensionId);
+      // delete the path
+      if (extension.removable) {
+        await fs.promises.rm(extension.path, { recursive: true, force: true });
+      } else {
+        throw new Error(`Extension ${extensionId} is not removable`);
+      }
+      this.analyzedExtensions.delete(extensionId);
+      this.apiSender.send('extension-removed', {});
     }
   }
 
   getConfigurationRegistry(): ConfigurationRegistry {
     return this.configurationRegistry;
+  }
+
+  getPluginsDirectory(): string {
+    return this.pluginsDirectory;
   }
 }

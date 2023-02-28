@@ -8,14 +8,14 @@ Let's discover **Podman Desktop in less than 5 minutes**.
 
 ## Getting Started
 
-Get started by **[Downloading](/downloads) the product** for your Operating System.
+Get started by **[Downloading](/downloads) the product** for your operating system.
 
 ### What you'll need
 
 - Podman 4.x
-  - Check there is a podman machine running
+  - Check there is a Podman machine running
 
-### Check podman CLI is working
+### Check Podman CLI is working
 
 Run the development server:
 

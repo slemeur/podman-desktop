@@ -13,25 +13,60 @@ export let pod: PodInfoUI;
 export let dropdownMenu: boolean = false;
 export let detailed: boolean = false;
 
+export let inProgressCallback: (inProgress: boolean, state?: string) => void = () => {};
+export let errorCallback: (erroMessage: string) => void = () => {};
+
 async function startPod(podInfoUI: PodInfoUI) {
-  await window.startPod(podInfoUI.engineId, podInfoUI.id);
+  inProgressCallback(true, 'STARTING');
+  try {
+    await window.startPod(podInfoUI.engineId, podInfoUI.id);
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 
 async function restartPod(podInfoUI: PodInfoUI) {
-  await window.restartPod(podInfoUI.engineId, podInfoUI.id);
+  inProgressCallback(true, 'RESTARTING');
+  try {
+    await window.restartPod(podInfoUI.engineId, podInfoUI.id);
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 
 async function stopPod(podInfoUI: PodInfoUI) {
-  await window.stopPod(podInfoUI.engineId, podInfoUI.id);
+  inProgressCallback(true);
+  try {
+    await window.stopPod(podInfoUI.engineId, podInfoUI.id);
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 
 async function removePod(podInfoUI: PodInfoUI): Promise<void> {
-  await window.removePod(podInfoUI.engineId, podInfoUI.id);
-  router.goto('/pods/');
+  inProgressCallback(true, 'REMOVING');
+  try {
+    if (pod.kind === 'podman') {
+      await window.removePod(podInfoUI.engineId, podInfoUI.id);
+    } else {
+      await window.kubernetesDeletePod(podInfoUI.name);
+    }
+    router.goto('/pods/');
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 
 function openGenerateKube(): void {
-  router.goto(`/pods/${encodeURI(pod.name)}/${encodeURI(pod.engineId)}/kube`);
+  router.goto(`/pods/${encodeURI(pod.kind)}/${encodeURI(pod.name)}/${encodeURI(pod.engineId)}/kube`);
 }
 
 function deployToKubernetes(): void {
@@ -47,34 +82,40 @@ if (dropdownMenu) {
 }
 </script>
 
-<ListItemButtonIcon
-  title="Start Pod"
-  onClick="{() => startPod(pod)}"
-  hidden="{pod.status === 'RUNNING'}"
-  detailed="{detailed}"
-  icon="{faPlay}" />
-<ListItemButtonIcon
-  title="Stop Pod"
-  onClick="{() => stopPod(pod)}"
-  hidden="{!(pod.status === 'RUNNING')}"
-  detailed="{detailed}"
-  icon="{faStop}" />
+{#if pod.kind === 'podman'}
+  <ListItemButtonIcon
+    title="Start Pod"
+    onClick="{() => startPod(pod)}"
+    hidden="{pod.status === 'RUNNING'}"
+    detailed="{detailed}"
+    icon="{faPlay}" />
+  <ListItemButtonIcon
+    title="Stop Pod"
+    onClick="{() => stopPod(pod)}"
+    hidden="{!(pod.status === 'RUNNING')}"
+    detailed="{detailed}"
+    icon="{faStop}" />
+{/if}
 <ListItemButtonIcon title="Delete Pod" onClick="{() => removePod(pod)}" icon="{faTrash}" detailed="{detailed}" />
 
 <!-- If dropdownMenu is true, use it, otherwise just show the regular buttons -->
 <svelte:component this="{actionsStyle}">
-  <ListItemButtonIcon
-    title="Generate Kube"
-    onClick="{() => openGenerateKube()}"
-    menu="{dropdownMenu}"
-    detailed="{detailed}"
-    icon="{faFileCode}" />
-  <ListItemButtonIcon
-    title="Deploy to Kubernetes"
-    onClick="{() => deployToKubernetes()}"
-    menu="{dropdownMenu}"
-    detailed="{detailed}"
-    icon="{faRocket}" />
+  {#if pod.kind === 'podman'}
+    {#if !detailed}
+      <ListItemButtonIcon
+        title="Generate Kube"
+        onClick="{() => openGenerateKube()}"
+        menu="{dropdownMenu}"
+        detailed="{detailed}"
+        icon="{faFileCode}" />
+    {/if}
+    <ListItemButtonIcon
+      title="Deploy to Kubernetes"
+      onClick="{() => deployToKubernetes()}"
+      menu="{dropdownMenu}"
+      detailed="{detailed}"
+      icon="{faRocket}" />
+  {/if}
   <ListItemButtonIcon
     title="Restart Pod"
     onClick="{() => restartPod(pod)}"

@@ -51,12 +51,15 @@ export interface ContainerInfoUI {
   uptime: string;
   startedAt: string;
   port: string;
+  displayPort: string;
   command: string;
   hasPublicPort: boolean;
   openingUrl?: string;
   groupInfo: ContainerGroupPartInfoUI;
   selected: boolean;
   created: number;
+  actionInProgress?: boolean;
+  actionError?: string;
 }
 
 export interface ContainerGroupInfoUI extends ContainerGroupPartInfoUI {

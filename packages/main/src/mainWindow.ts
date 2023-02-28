@@ -17,8 +17,10 @@
  ***********************************************************************/
 
 import type { BrowserWindowConstructorOptions, FileFilter } from 'electron';
-import { BrowserWindow, ipcMain, app, dialog, screen } from 'electron';
+import { Menu } from 'electron';
+import { BrowserWindow, ipcMain, app, dialog, screen, nativeTheme } from 'electron';
 import contextMenu from 'electron-context-menu';
+const { aboutMenuItem } = require('electron-util');
 import { join } from 'path';
 import { URL } from 'url';
 import type { ConfigurationRegistry } from './plugin/configuration-registry';
@@ -30,6 +32,11 @@ async function createWindow() {
   const INITIAL_APP_HEIGHT = 600;
   const INITIAL_APP_MIN_HEIGHT = 600;
 
+  // We have a "dark" background color in order to avoid the white flash when loading the app
+  // this only occurs if the user clicks on the app icon milliseconds before the app is fully loaded.
+  // We use the native theme to determine if we should use a dark background color or not.
+  const INITIAL_APP_BACKGROUND_COLOR = nativeTheme.shouldUseDarkColors ? '#18181b' : '#ffffff';
+
   const browserWindowConstructorOptions: BrowserWindowConstructorOptions = {
     show: false, // Use 'ready-to-show' event to show window
     autoHideMenuBar: true, // This makes Podman Desktop look more like a native app
@@ -37,6 +44,7 @@ async function createWindow() {
     minWidth: INITIAL_APP_MIN_WIDTH,
     minHeight: INITIAL_APP_MIN_HEIGHT,
     height: INITIAL_APP_HEIGHT,
+    backgroundColor: INITIAL_APP_BACKGROUND_COLOR,
     webPreferences: {
       webSecurity: false,
       //nativeWindowOpen: true,
@@ -45,7 +53,7 @@ async function createWindow() {
     },
   };
 
-  if (isMac) {
+  if (isMac()) {
     // This property is not available on Linux.
     browserWindowConstructorOptions.titleBarStyle = 'hiddenInset';
   }
@@ -71,9 +79,13 @@ async function createWindow() {
    * @see https://github.com/electron/electron/issues/25012
    */
   browserWindow.on('ready-to-show', () => {
-    browserWindow?.show();
-    if (isMac) {
-      app.dock.show();
+    // If started with --minimize flag, don't show the window and hide the dock icon on macOS
+    if (isStartedMinimize()) {
+      if (isMac()) {
+        app.dock.hide();
+      }
+    } else {
+      browserWindow.show();
     }
 
     if (import.meta.env.DEV) {
@@ -109,7 +121,7 @@ async function createWindow() {
 
   browserWindow.on('close', e => {
     const closeBehaviorConfiguration = configurationRegistry?.getConfiguration('preferences');
-    let exitonclose = isLinux; // default value, which we will use unless the user preference is available.
+    let exitonclose = isLinux(); // default value, which we will use unless the user preference is available.
     if (closeBehaviorConfiguration) {
       exitonclose = closeBehaviorConfiguration.get<boolean>('ExitOnClose') == true;
     }
@@ -117,7 +129,7 @@ async function createWindow() {
     if (!exitonclose) {
       e.preventDefault();
       browserWindow.hide();
-      if (isMac) {
+      if (isMac()) {
         app.dock.hide();
       }
     } else {
@@ -165,6 +177,29 @@ async function createWindow() {
     },
   });
 
+  // Add help/about menu entry
+  const menu = Menu.getApplicationMenu(); // get default menu
+  if (menu) {
+    // build a new menu based on default one but adding about entry in the help menu
+    const newmenu = Menu.buildFromTemplate(
+      menu.items.map(i => {
+        // add the About entry only in the help menu
+        if (i.role === 'help' && i.submenu) {
+          const aboutMenuSubItem = aboutMenuItem({});
+          aboutMenuSubItem.label = 'About';
+
+          // create new submenu
+          // also add a separator before the About entry
+          const newSubMenu = Menu.buildFromTemplate([...i.submenu.items, { type: 'separator' }, aboutMenuSubItem]);
+          return Object.assign({}, i, { submenu: newSubMenu });
+        }
+        return i;
+      }),
+    );
+
+    Menu.setApplicationMenu(newmenu);
+  }
+
   /**
    * URL for main window.
    * Vite dev server for development.
@@ -180,23 +215,34 @@ async function createWindow() {
   return browserWindow;
 }
 
-/**
- * Restore existing BrowserWindow or Create new BrowserWindow
- */
-export async function restoreOrCreateWindow() {
+// Create a new window if there is no existing window
+export async function createNewWindow() {
   let window = BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
 
   if (window === undefined) {
     window = await createWindow();
   }
+}
 
-  if (window.isMinimized()) {
-    window.restore();
-  }
+// Restore the window if it is minimized / not shown / there is already another instance running
+export async function restoreWindow() {
+  const window = BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
 
-  if (!window.isVisible()) {
+  // Only restore the window if we were able to find it
+  if (window) {
+    if (window.isMinimized()) {
+      window.restore();
+    }
+
     window.show();
+    window.focus();
   }
+}
 
-  window.focus();
+// Checks process args if it was started with the --minimize flag
+function isStartedMinimize(): boolean {
+  // We convert to string only because sometimes [node] will be the first argument in a packaged
+  // environment, so instead of checking each element, simply convert to string and see if --minimize was included.
+  const argv = process.argv.toString();
+  return argv.includes('--minimize');
 }

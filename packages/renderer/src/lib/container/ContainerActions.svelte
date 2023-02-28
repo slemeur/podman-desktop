@@ -5,7 +5,7 @@ import { faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faExternalLinkSquareAlt } from '@fortawesome/free-solid-svg-icons';
 import { ContainerGroupInfoTypeUI, ContainerInfoUI } from './ContainerInfoUI';
-import Fa from 'svelte-fa/src/fa.svelte';
+
 import { router } from 'tinro';
 import ListItemButtonIcon from '../ui/ListItemButtonIcon.svelte';
 import DropdownMenu from '../ui/DropdownMenu.svelte';
@@ -14,24 +14,56 @@ export let container: ContainerInfoUI;
 export let dropdownMenu: boolean = false;
 export let detailed: boolean = false;
 
+export let inProgressCallback: (inProgress: boolean, state?: string) => void = () => {};
+export let errorCallback: (erroMessage: string) => void = () => {};
+
 async function startContainer(containerInfo: ContainerInfoUI) {
-  await window.startContainer(containerInfo.engineId, containerInfo.id);
+  inProgressCallback(true, 'STARTING');
+  try {
+    await window.startContainer(containerInfo.engineId, containerInfo.id);
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 
 async function restartContainer(containerInfo: ContainerInfoUI) {
-  await window.restartContainer(containerInfo.engineId, containerInfo.id);
+  inProgressCallback(true, 'RESTARTING');
+  try {
+    await window.restartContainer(containerInfo.engineId, containerInfo.id);
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 
 async function stopContainer(containerInfo: ContainerInfoUI) {
-  await window.stopContainer(containerInfo.engineId, containerInfo.id);
+  inProgressCallback(true);
+  try {
+    await window.stopContainer(containerInfo.engineId, containerInfo.id);
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
+
 function openBrowser(containerInfo: ContainerInfoUI): void {
   window.openExternal(containerInfo.openingUrl);
 }
 
 async function deleteContainer(containerInfo: ContainerInfoUI): Promise<void> {
-  await window.deleteContainer(containerInfo.engineId, containerInfo.id);
-  router.goto('/containers/');
+  inProgressCallback(true);
+  try {
+    await window.deleteContainer(containerInfo.engineId, containerInfo.id);
+    router.goto('/containers/');
+  } catch (error) {
+    errorCallback(error);
+  } finally {
+    inProgressCallback(false);
+  }
 }
 function openTerminalContainer(containerInfo: ContainerInfoUI): void {
   router.goto(`/containers/${container.id}/terminal`);
@@ -77,13 +109,17 @@ if (dropdownMenu) {
 
 <!-- If dropdownMenu is true, use it, otherwise just show the regular buttons -->
 <svelte:component this="{actionsStyle}">
-  <ListItemButtonIcon
-    title="Generate Kube"
-    onClick="{() => openGenerateKube()}"
-    menu="{dropdownMenu}"
-    hidden="{!(container.engineType === 'podman' && container.groupInfo.type === ContainerGroupInfoTypeUI.STANDALONE)}"
-    detailed="{detailed}"
-    icon="{faFileCode}" />
+  {#if !detailed}
+    <ListItemButtonIcon
+      title="Generate Kube"
+      onClick="{() => openGenerateKube()}"
+      menu="{dropdownMenu}"
+      hidden="{!(
+        container.engineType === 'podman' && container.groupInfo.type === ContainerGroupInfoTypeUI.STANDALONE
+      )}"
+      detailed="{detailed}"
+      icon="{faFileCode}" />
+  {/if}
   <ListItemButtonIcon
     title="Deploy to Kubernetes"
     onClick="{() => deployToKubernetes()}"
@@ -95,16 +131,19 @@ if (dropdownMenu) {
     title="Open Browser"
     onClick="{() => openBrowser(container)}"
     menu="{dropdownMenu}"
-    hidden="{!(container.state === 'RUNNING' && container.hasPublicPort)}"
+    enabled="{container.state === 'RUNNING' && container.hasPublicPort}"
+    hidden="{dropdownMenu && container.state !== 'RUNNING'}"
     detailed="{detailed}"
     icon="{faExternalLinkSquareAlt}" />
-  <ListItemButtonIcon
-    title="Open Terminal"
-    onClick="{() => openTerminalContainer(container)}"
-    menu="{dropdownMenu}"
-    hidden="{!(container.state === 'RUNNING')}"
-    detailed="{detailed}"
-    icon="{faTerminal}" />
+  {#if !detailed}
+    <ListItemButtonIcon
+      title="Open Terminal"
+      onClick="{() => openTerminalContainer(container)}"
+      menu="{dropdownMenu}"
+      hidden="{!(container.state === 'RUNNING')}"
+      detailed="{detailed}"
+      icon="{faTerminal}" />
+  {/if}
   <ListItemButtonIcon
     title="Restart Container"
     onClick="{() => restartContainer(container)}"

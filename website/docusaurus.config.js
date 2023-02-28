@@ -63,6 +63,12 @@ const config = {
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
+      docs: {
+        sidebar: {
+          autoCollapseCategories: true,
+          hideable: true,
+        },
+      },
       navbar: {
         title,
         logo: {
@@ -72,8 +78,8 @@ const config = {
         },
         items: [
           {
-            type: 'doc',
-            docId: 'intro',
+            type: 'docSidebar',
+            sidebarId: 'mySidebar',
             position: 'left',
             label: 'Documentation',
           },
@@ -97,6 +103,22 @@ const config = {
               {
                 label: 'Introduction',
                 to: '/docs/intro',
+              },
+              {
+                label: 'Installing Podman Desktop',
+                to: '/docs/Installation',
+              },
+              {
+                label: 'Getting started',
+                to: '/docs/getting-started/getting-started',
+              },
+              {
+                label: 'Migrating from Docker',
+                to: '/docs/migrating-from-docker',
+              },
+              {
+                label: 'Using Compose',
+                to: '/docs/podman-compose',
               },
               {
                 label: 'Troubleshooting',
@@ -143,7 +165,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
-        additionalLanguages: ['docker'],
+        additionalLanguages: ['docker', 'shell-session'],
       },
       algolia: {
         // The application ID provided by Algolia

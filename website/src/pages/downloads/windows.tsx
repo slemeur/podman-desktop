@@ -14,20 +14,36 @@ async function grabfilenameforWindows(
   const result = await fetch('https://api.github.com/repos/containers/podman-desktop/releases/latest');
   const jsonContent = await result.json();
   const assets = jsonContent.assets;
-  const windowsSetupAssets = assets.filter(asset => (asset.name as string).endsWith('-setup.exe'));
+  const windowsSetupAssets = assets.filter(
+    asset => (asset.name as string).endsWith('-setup.exe') && !asset.name.includes('airgap'),
+  );
   if (windowsSetupAssets.length !== 1) {
     throw new Error('Unable to grab setup.exe');
   }
   const windowsSetupAsset = windowsSetupAssets[0];
 
   const binaryOnlyWindowsAssets = assets.filter(
-    asset => (asset.name as string).endsWith('.exe') && asset.name !== windowsSetupAsset.name,
+    asset =>
+      (asset.name as string).endsWith('.exe') &&
+      !asset.name.includes('airgap') &&
+      asset.name !== windowsSetupAsset.name,
   );
   const binaryAsset = binaryOnlyWindowsAssets[0];
+
+  /* Find Windows installer for restricted environment */
+  const windowsAirgapSetupAssets = assets.filter(
+    asset =>
+      (asset.name as string).endsWith('-setup.exe') &&
+      asset.name.includes('airgap') &&
+      asset.name !== windowsSetupAsset.name,
+  );
+  const windowsAirgapSetupAsset = windowsAirgapSetupAssets[0];
+
   const data = {
     version: jsonContent.name,
     binary: binaryAsset.browser_download_url,
     setup: windowsSetupAsset.browser_download_url,
+    airgapsetup: windowsAirgapSetupAsset.browser_download_url,
   };
   setDownloadData(data);
 }
@@ -71,7 +87,13 @@ export function WindowsDownloads(): JSX.Element {
               className="underline inline-flex dark:text-white text-purple-600 hover:text-purple-300 py-2 px-6 font-semibold text-md"
               to={downloadData.binary}>
               <FontAwesomeIcon size="1x" icon={faDownload} className="mr-2" />
-              *.exe
+              Windows portable executable
+            </Link>
+            <Link
+              className="underline inline-flex dark:text-white text-purple-600 hover:text-purple-300 py-2 px-6 font-semibold text-md"
+              to={downloadData.airgapsetup}>
+              <FontAwesomeIcon size="1x" icon={faDownload} className="mr-2" />
+              Windows installer for restricted environments
             </Link>
             <Link
               className="underline inline-flex dark:text-white text-purple-600 hover:text-purple-300 py-2 px-6 font-semibold text-md"

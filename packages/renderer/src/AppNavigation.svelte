@@ -2,12 +2,24 @@
 import { imagesInfos } from './stores/images';
 import { contributions } from './stores/contribs';
 import { podsInfos } from './stores/pods';
-import { onMount } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 import { CommandRegistry } from './lib/CommandRegistry';
 import { containersInfos } from './stores/containers';
 import { volumeListInfos } from './stores/volumes';
+import { ImageUtils } from './lib/image/image-utils';
+import type { ImageInfo } from '../../main/src/plugin/api/image-info';
+import type { ImageInfoUI } from './lib/image/ImageInfoUI';
+import ContainerIcon from './lib/images/ContainerIcon.svelte';
+import PodIcon from './lib/images/PodIcon.svelte';
+import ImageIcon from './lib/images/ImageIcon.svelte';
+import VolumeIcon from './lib/images/VolumeIcon.svelte';
+import InlineSVG from 'svelte-inline-svg';
 
 let containersCountValue;
+let imageInfoSubscribe;
+let images: ImageInfoUI[] = [];
+
+const imageUtils = new ImageUtils();
 
 onMount(async () => {
   const commandRegistry = new CommandRegistry();
@@ -15,9 +27,18 @@ onMount(async () => {
   containersInfos.subscribe(value => {
     containersCountValue = value.length;
   });
+  imageInfoSubscribe = imagesInfos.subscribe(value => {
+    images = value.map((imageInfo: ImageInfo) => imageUtils.getImagesInfoUI(imageInfo, [])).flat();
+  });
 });
 
-let contributionsExpanded: boolean = true;
+onDestroy(() => {
+  if (imageInfoSubscribe) {
+    imageInfoSubscribe();
+  }
+});
+
+let contributionsExpanded: boolean = false;
 function toggleContributions() {
   contributionsExpanded = !contributionsExpanded;
 }
@@ -29,7 +50,7 @@ export let meta;
 
 <svelte:window bind:innerWidth="{innerWidth}" />
 <nav
-  class="pf-c-nav z-0 group w-12 hover:w-[180px] md:w-[180px] md:min-w-[180px] shadow flex-col justify-between sm:flex transition-all duration-500 ease-in-out"
+  class="pf-c-nav z-0 group w-14 hover:w-[250px] md:w-[250px] hover:sm:w-[250px] md:min-w-[200px] shadow flex-col justify-between sm:flex transition-all duration-500 ease-in-out overflow-hidden hover:overflow-y-auto"
   aria-label="Global">
   <ul class="pf-c-nav__list">
     <li
@@ -42,7 +63,7 @@ export let meta;
             id="dashboard"
             width="24"
             height="24"
-            viewBox="0 0 6.1658381 6.2230703"
+            viewBox="0.856 0.885 4.454 4.454"
             version="1.1"
             xml:space="preserve"
             xmlns="http://www.w3.org/2000/svg"
@@ -56,7 +77,7 @@ export let meta;
               ></g
             ></svg>
           <span
-            class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-2 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+            class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-3 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
             >Dashboard</span>
         </div>
       </a>
@@ -69,27 +90,9 @@ export let meta;
       <a href="/containers" class="pf-c-nav__link flex items-center align-middle">
         <div class="flex items-center w-full h-full">
           <div class="flex items-center">
-            <svg
-              id="containers"
-              xmlns:xlink="http://www.w3.org/1999/xlink"
-              width="24"
-              height="24"
-              viewBox="0 0 6.3500005 6.3500005"
-              version="1.1"
-              xml:space="preserve"
-              xmlns="http://www.w3.org/2000/svg"
-              ><defs id="defs2"></defs>
-              <g id="layer1" transform="translate(21.210601,-15.062965)">
-                <g id="g12184" transform="translate(-7.3827548,0.05695021)">
-                  <path
-                    id="path20134"
-                    style="color:#000000;fill:#ffffff;fill-rule:evenodd;stroke-width:0.264583;stroke-linejoin:round;stroke-miterlimit:10;-inkscape-stroke:none"
-                    d="m -10.666282,15.93309 a 0.13230489,0.13230489 0 0 0 -0.02584,0.0052 l -2.116667,0.661458 a 0.13230489,0.13230489 0 0 0 -0.08888,0.151412 0.13230489,0.13230489 0 0 0 -0.0041,0.03256 v 2.390552 a 0.13230489,0.13230489 0 0 0 0.07028,0.116789 l 2.106332,1.123445 a 0.13230489,0.13230489 0 0 0 0.07235,0.01447 0.13230489,0.13230489 0 0 0 0.07235,-0.01447 l 2.1063312,-1.123445 a 0.13230489,0.13230489 0 0 0 0.07028,-0.116789 V 16.78372 a 0.13230489,0.13230489 0 0 0 -0.00362,-0.03152 0.13230489,0.13230489 0 0 0 -0.0894,-0.152445 l -2.1166662,-0.661458 a 0.13230489,0.13230489 0 0 0 -0.05271,-0.0052 z m 0.01344,0.269751 1.6737994,0.522965 -1.6737994,0.522966 -1.6738,-0.522966 z m -1.984375,0.762227 1.851566,0.595313 -0.0088,2.517159 -1.842781,-0.982886 z m 3.9687498,0 v 2.129586 l -1.8427818,0.982886 -0.0088,-2.517159 z"
-                  ></path>
-                </g></g>
-            </svg>
+            <ContainerIcon size="24" />
             <span
-              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-2 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out ml-3 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
               >Containers</span>
           </div>
 
@@ -112,33 +115,9 @@ export let meta;
       <a href="/pods" class="pf-c-nav__link">
         <div class="flex items-center w-full h-full">
           <div class="flex items-center">
-            <svg
-              id="pods"
-              width="24"
-              height="24"
-              version="1.1"
-              viewBox="0 0 6.35 6.35"
-              xml:space="preserve"
-              xmlns="http://www.w3.org/2000/svg"
-              ><g transform="translate(13.828 -15.047)"
-                ><g fill="none"
-                  ><path rx="0" ry="0" d="m-12.77 16.726 2.1167-0.66146 2.1167 0.66146-2.1167 0.66146z"></path><path
-                    rx="0"
-                    ry="0"
-                    d="m-12.77 16.858v2.3162l2.1063 1.1234 0.01032-2.8334z"></path
-                  ><path rx="0" ry="0" d="m-8.5362 16.858v2.3162l-2.1063 1.1234-0.01032-2.8334z"></path></g
-                ><path
-                  d="m-10.69 15.912-1.2244 0.38102c-0.07756 0.02078-0.08938 0.04372-0.08938 0.13709l-7.81e-4 1.4146-1.1746 0.36557c-0.05866 0.01854-0.09608 0.07594-0.08938 0.13709l-2e-3 1.4025c-9.6e-5 0.04783 0.02628 0.09181 0.06854 0.11424l1.219 0.64982c0.04484 0.0259 0.0808 0.02977 0.13239 0l1.1982-0.63907 1.1968 0.63907c0.070707 0.04082 0.10676 0.01595 0.1344 0l1.2163-0.64982c0.042259-0.02243 0.06864-0.0664 0.068544-0.11424v-1.3823c-1.251e-4 -0.0029-3.492e-4 -0.0059-6.72e-4 -0.0088 0.012965-0.06474-0.025016-0.12882-0.088031-0.14851l-1.176-0.36621v-1.4065c0-0.0864-0.0025-0.11749-0.088704-0.14448l-1.2244-0.38102c-0.02557-0.0069-0.05523-0.0056-0.07591-4.3e-5zm0.03761 0.25608 0.79027 0.24662-0.79027 0.24864-0.79228-0.24864zm1.0947 0.45763v1.1303l-0.96028 0.41328-0.0046-1.2311zm-2.1894 0.0021 0.96566 0.31046-0.0046 1.2311-0.96028-0.41328zm-0.17002 1.4609 0.73718 0.26275-0.73718 0.22982-0.7896-0.24662zm2.5301 0 0.7896 0.24595-0.7896 0.24662-0.73785-0.2305zm-1.4354 0.45427v1.1303l-0.95961 0.51072-0.0053-1.3285zm2.5301 0v1.1303l-0.96028 0.51072-0.00537-1.3285zm-4.7194 0.0027 0.96566 0.30979-0.0053 1.3312-0.96028-0.5134zm2.5301 0 0.96499 0.30979-0.00537 1.3312-0.95961-0.5134z"
-                  color="#000000"
-                  fill="#fff"
-                  fill-rule="evenodd"
-                  stroke-linejoin="round"
-                  stroke-miterlimit="10"
-                  stroke-width="1.3004"></path
-                ></g
-              ></svg>
+            <PodIcon size="24" />
             <span
-              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-2 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out ml-3 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
               >Pods</span>
           </div>
           <div class="flex w-full justify-end">
@@ -160,48 +139,16 @@ export let meta;
       <a href="/images" class="pf-c-nav__link">
         <div class="flex items-center w-full h-full">
           <div class="flex items-center">
-            <svg
-              id="images"
-              width="24"
-              height="24"
-              viewBox="0 0 6.3499985 6.3500005"
-              version="1.1"
-              xml:space="preserve"
-              xmlns="http://www.w3.org/2000/svg"
-              ><defs id="defs2"></defs><g id="layer1" transform="translate(6.6169197,-15.034864)"
-                ><g
-                  id="fills-79d97be3-4979-11ed-9e28-8943899c0994"
-                  transform="matrix(0.26458333,0,0,0.26458333,-5.5585839,16.754655)"
-                  style="fill:none"
-                  ><path
-                    rx="0"
-                    ry="0"
-                    d="M 5.783,0 C 3.768,0 2.134,1.593 2.133,3.558 2.134,3.846 2.17,4.132 2.242,4.411 0.928,4.901 0,6.136 0,7.592 0,9.48 1.561,11 3.5,11 h 9 C 14.439,11 16,9.48 16,7.592 16,6.114 15.044,4.863 13.698,4.388 13.376,3.262 12.324,2.483 11.125,2.483 10.495,2.484 9.885,2.702 9.404,3.098 9.167,1.325 7.617,-0.001 5.783,0 Z"
-                    style="opacity:1;fill:none;stroke-linejoin:round;stroke-dasharray:none"
-                    id="path709"></path
-                  ></g
-                ><g
-                  id="strokes-79d97be3-4979-11ed-9e28-8943899c0994"
-                  transform="matrix(0.26458333,0,0,0.26458333,-5.5585839,16.754655)"
-                  style="fill:none"
-                  ><g class="stroke-shape" id="g714"
-                    ><path
-                      style="color:#000000;fill:#ffffff;stroke-linejoin:round;-inkscape-stroke:none"
-                      d="m 5.7832031,-0.5 c -2.2785213,0 -4.1492496,1.8165496 -4.1503906,4.0585938 -0.00239,0.2305251 0.059002,0.4582976 0.083984,0.6523406 C 0.43876123,4.8601614 -0.5,6.0815447 -0.5,7.5917969 -0.5,9.755395 1.2996991,11.5 3.5,11.5 h 9 c 2.200301,0 4,-1.744605 4,-3.9082031 C 16.5,5.9739512 15.463672,4.6342411 14.035156,4.0410156 13.574253,2.8345361 12.45042,1.9824219 11.125,1.9824219 10.611308,1.9832373 10.168749,2.2559402 9.71875,2.4863281 9.2218709,0.75690955 7.6572437,-0.50102183 5.7832031,-0.5 Z m 0,1 c 1.5928417,-8.6851e-4 2.9215944,1.1423826 3.125,2.6640625 C 8.9593555,3.553892 9.4196538,3.7349206 9.7226563,3.484375 10.11303,3.1629865 10.609832,2.9832396 11.125,2.9824219 c 0.98243,0 1.832189,0.6351465 2.091797,1.5429687 0.04456,0.1556748 0.161742,0.280136 0.314453,0.3339844 C 14.687516,5.2674182 15.5,6.3294048 15.5,7.5917969 15.5,9.204195 14.177695,10.5 12.5,10.5 h -9 C 1.8223048,10.5 0.5,9.204195 0.5,7.5917969 0.5,6.3482523 1.2875139,5.2997326 2.4160156,4.8789062 2.6564346,4.7898636 2.7905624,4.5334179 2.7265625,4.2851562 2.6651446,4.0471618 2.6336718,3.8041238 2.6328125,3.5566406 2.6347397,1.8695779 4.0323987,0.5 5.7832031,0.5 Z"
-                      id="path712"></path
-                    ></g
-                  ></g
-                ></g>
-            </svg>
+            <ImageIcon size="24" />
             <span
-              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-2 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out ml-3 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
               >Images</span>
           </div>
           <div class="flex w-full justify-end">
             <div>
               {#if innerWidth >= 768}
                 {#if $imagesInfos.length > 0}
-                  <span class="pf-c-badge pf-m-read hidden items-center justify-center">{$imagesInfos.length}</span>
+                  <span class="pf-c-badge pf-m-read hidden items-center justify-center">{images.length}</span>
                 {/if}
               {/if}
             </div>
@@ -216,40 +163,9 @@ export let meta;
       <a href="/volumes" class="pf-c-nav__link">
         <div class="flex items-center w-full h-full">
           <div class="flex items-center">
-            <svg
-              id="volumes"
-              width="24"
-              height="24"
-              viewBox="0 0 6.3499985 6.3500005"
-              version="1.1"
-              xml:space="preserve"
-              xmlns="http://www.w3.org/2000/svg"
-              ><defs></defs><g transform="translate(-0.50925903,-15.109665)"
-                ><g
-                  id="fills-79d97bef-4979-11ed-9e28-8943899c0994"
-                  style="fill:#000000;stroke-width:1;stroke-dasharray:none"
-                  transform="matrix(0.26458333,0,0,0.26458333,1.5675951,17.09404)"
-                  ><path
-                    rx="0"
-                    ry="0"
-                    d="m 16,1.913 z m 0,0 C 16,2.969 12.418,3.826 8,3.826 3.582,3.826 0,2.969 0,1.913 v 0 C 0,0.856 3.582,0 8,0 c 4.418,0 8,0.856 8,1.913 z m 0,0 V 7.087 C 16,8.144 12.418,9 8,9 3.582,9 0,8.144 0,7.087 V 1.913"
-                    style="fill:none;fill-rule:evenodd;stroke-width:1;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none"
-                  ></path
-                  ></g
-                ><g
-                  style="fill:#000000;stroke-width:1;stroke-dasharray:none"
-                  transform="matrix(0.26458333,0,0,0.26458333,1.5675951,17.09404)"
-                  ><g class="stroke-shape" style="stroke-width:1;stroke-dasharray:none"
-                    ><path
-                      style="color:#000000;fill:#ffffff;fill-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:10;-inkscape-stroke:none"
-                      d="M 8,-0.5 C 5.308199,-0.44627808 2.7353389,-0.26074086 0.3828125,0.73242187 -0.08998295,0.99973104 -0.5,1.3654569 -0.5,1.9121094 v 5.1757812 c 0,0.5466525 0.41001705,0.9123784 0.8828125,1.1796875 C 2.7589104,9.3313527 5.7271019,9.491748 8,9.5 10.691802,9.4462782 13.264661,9.2607406 15.617188,8.2675781 16.246686,7.9041374 16.5,7.8219799 16.5,7.0878906 V 1.9121094 C 16.5,1.3654569 16.089983,0.99973104 15.617188,0.73242187 13.24109,-0.33135254 10.272898,-0.49174799 8,-0.5 Z m 0,1 c 2.649222,0.0569525 5.021785,0.005065 7.5,1.4121094 0,-0.018671 -0.03806,0.1200895 -0.375,0.3105469 C 12.902157,3.1721288 10.113737,3.3183277 8,3.3261719 5.4907046,3.2640566 3.1296592,3.1307059 0.875,2.2226563 0.53806505,2.0321989 0.5,1.8934389 0.5,1.9121094 2.9262917,0.39519991 5.8400742,0.50801972 8,0.5 Z M 0.5,3.1328125 C 2.8423807,4.1650465 5.7688795,4.318076 8,4.3261719 10.645243,4.2636654 13.190761,4.1064332 15.5,3.1328125 V 7.0878906 C 13.289959,8.4696007 10.159926,8.4919803 8,8.5 5.3507782,8.4430475 2.6797453,8.3254743 0.5,7.0878906 Z"
-                    ></path
-                    ></g
-                  ></g
-                ></g
-              ></svg>
+            <VolumeIcon size="24" />
             <span
-              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-2 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out ml-3 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
               >Volumes</span>
           </div>
           <div class="flex w-full justify-end">
@@ -266,58 +182,52 @@ export let meta;
       </a>
     </li>
     {#if $contributions.length > 0}
-      <li
-        class="pf-c-nav__item pf-m-expandable {contributionsExpanded
-          ? 'pf-m-expanded'
-          : ''}   hover:text-gray-300 cursor-pointer items-center mb-6">
-        <a class="pf-c-nav__link" id="expandable-third-level-example-example-2" aria-expanded="true" href="/contribs">
-          <div class="flex items-center w-full h-full">
-            <div class="flex items-center">
-              <svg
-                id="extensions"
-                width="24"
-                height="24"
-                version="1.1"
-                viewBox="0 0 6.35 6.35"
-                xml:space="preserve"
-                xmlns="http://www.w3.org/2000/svg"
-                ><g transform="translate(-14.802 -15.079)"
-                  ><path
-                    d="m17.906 15.863c-0.16971 0-0.32767 0.05096-0.44727 0.14062-0.11959 0.08966-0.20312 0.22586-0.20312 0.38086 0 0.15539 0.08551 0.29117 0.20508 0.38086 0.03655 0.02717 0.05273 0.05925 0.05273 0.07813 0 0.03194-0.02275 0.05469-0.05469 0.05469h-0.97852c-0.28604 0-0.51953 0.23545-0.51953 0.52148v0.45898c-1e-6 0.17526 0.14311 0.32031 0.31836 0.32031 0.13007 0 0.22915-0.07693 0.29102-0.16016 0.05114-0.06819 0.11002-0.09766 0.16992-0.09766 0.05948 0 0.11701 0.02968 0.16797 0.09766 0.05096 0.06797 0.08789 0.17112 0.08789 0.28711s-0.03693 0.21914-0.08789 0.28711c-0.05096 0.06797-0.10849 0.09961-0.16797 0.09961-0.0599 0-0.11877-0.03141-0.16992-0.09961-0.06186-0.08324-0.16095-0.16016-0.29102-0.16016-0.17526 0-0.31836 0.14506-0.31836 0.32031v0.97656c-1e-6 0.28603 0.2335 0.52148 0.51953 0.52148h0.97852c0.17526 0 0.32031-0.14506 0.32031-0.32031 0-0.13007-0.07693-0.22915-0.16016-0.29102-0.06819-0.05114-0.09961-0.10807-0.09961-0.16797 0-0.05948 0.03164-0.11896 0.09961-0.16992 0.06797-0.05096 0.17112-0.08594 0.28711-0.08594s0.21718 0.03497 0.28516 0.08594c0.06797 0.05096 0.09961 0.11044 0.09961 0.16992 0 0.0599-0.03141 0.11681-0.09961 0.16797-0.08324 0.06187-0.16016 0.16096-0.16016 0.29102 0 0.17526 0.14506 0.32031 0.32031 0.32031h0.46094c0.28604 0 0.51953-0.23545 0.51953-0.52148v-0.97656c0-0.03195 0.0247-0.05664 0.05664-0.05664 0.01886 0 0.05095 0.01813 0.07813 0.05469 0.08969 0.11959 0.22548 0.20508 0.38086 0.20508 0.155 0 0.2912-0.08548 0.38086-0.20508 0.08966-0.11959 0.14062-0.2756 0.14062-0.44531s-0.05096-0.32572-0.14062-0.44531c-0.08966-0.1196-0.22586-0.20508-0.38086-0.20508-0.15539 0-0.29118 0.08552-0.38086 0.20508-0.02716 0.03655-0.05925 0.05469-0.07813 0.05469-0.03194 0-0.05664-0.0247-0.05664-0.05664v-0.45898c0-0.28603-0.2335-0.52148-0.51953-0.52148h-0.46094c-0.03195 0-0.05469-0.02275-0.05469-0.05469 0-0.01886 0.01618-0.05095 0.05273-0.07813h2e-3c0.11959-0.08969 0.20508-0.22548 0.20508-0.38086 0-0.155-0.08548-0.2912-0.20508-0.38086-0.11959-0.08966-0.2756-0.14062-0.44531-0.14062zm0 0.26367c0.11599 0 0.21718 0.03693 0.28516 0.08789 0.06797 0.05096 0.09961 0.11044 0.09961 0.16992 0 0.0599-0.03142 0.11683-0.09961 0.16797-0.08322 0.06186-0.16016 0.16095-0.16016 0.29102 0 0.17525 0.14505 0.32031 0.32031 0.32031h0.46094c0.14293 0 0.25586 0.11293 0.25586 0.25586v0.45898c0 0.17525 0.14505 0.32031 0.32031 0.32031 0.12939 0 0.22714-0.0774 0.28906-0.16016 0.05116-0.0682 0.11003-0.09766 0.16992-0.09766 0.05948 0 0.11896 0.02968 0.16992 0.09766 0.05096 0.06797 0.08594 0.17112 0.08594 0.28711s-0.03498 0.21914-0.08594 0.28711c-0.05096 0.06797-0.11044 0.09961-0.16992 0.09961-0.05938 0-0.11714-0.03263-0.16797-0.09961h-2e-3c-0.06192-0.08273-0.15966-0.16016-0.28906-0.16016-0.17525 0-0.32031 0.14505-0.32031 0.32031v0.97656c0 0.14293-0.11293 0.25781-0.25586 0.25781h-0.46094c-0.03194 0-0.05469-0.0247-0.05469-0.05664 0-0.01888 0.01618-0.05096 0.05273-0.07813h2e-3c0.11956-0.08968 0.20508-0.22546 0.20508-0.38086 0-0.155-0.08548-0.2912-0.20508-0.38086-0.11959-0.08966-0.2756-0.14062-0.44531-0.14062s-0.32767 0.05096-0.44727 0.14062c-0.11959 0.08966-0.20312 0.22586-0.20312 0.38086 0 0.15538 0.08549 0.29117 0.20508 0.38086 0.03656 0.02718 0.05273 0.05927 0.05273 0.07813 0 0.03194-0.02274 0.05664-0.05469 0.05664h-0.97852c-0.14293 0-0.25586-0.11489-0.25586-0.25781v-0.97656c0-0.03194 0.02274-0.05664 0.05469-0.05664 0.01888 0 0.05291 0.01813 0.08008 0.05469 0.08968 0.11956 0.22547 0.20508 0.38086 0.20508 0.155 0 0.2912-0.08548 0.38086-0.20508 0.08966-0.11959 0.13867-0.2756 0.13867-0.44531s-0.04901-0.32572-0.13867-0.44531c-0.08966-0.1196-0.22586-0.20508-0.38086-0.20508-0.15538 0-0.29117 0.08549-0.38086 0.20508-0.02718 0.03656-0.06122 0.05469-0.08008 0.05469-0.03194 0-0.05469-0.0247-0.05469-0.05664v-0.45898c0-0.14292 0.11293-0.25586 0.25586-0.25586h0.97852c0.17525 0 0.32031-0.14505 0.32031-0.32031 0-0.13006-0.07691-0.22915-0.16016-0.29102-0.0682-0.05115-0.09961-0.10807-0.09961-0.16797 0-0.05948 0.03164-0.11896 0.09961-0.16992 0.06797-0.05096 0.17112-0.08789 0.28711-0.08789z"
-                    color="#000000"
-                    fill="#fff"
-                    style="-inkscape-stroke:none"></path
-                  ></g
-                ></svg>
-            </div>
+      <li class="pf-c-nav__item pf-m-expandable {contributionsExpanded ? '' : 'pf-m-expanded'}">
+        <div class="pf-c-nav__link cursor-pointer" aria-expanded="true" on:click="{() => toggleContributions()}">
+          <div class="flex items-center">
+            <svg
+              id="extensions"
+              width="24"
+              height="24"
+              version="1.1"
+              viewBox="1.158 0.784 4.408 4.408"
+              xml:space="preserve"
+              xmlns="http://www.w3.org/2000/svg"
+              ><g transform="translate(-14.802 -15.079)"
+                ><path
+                  d="m17.906 15.863c-0.16971 0-0.32767 0.05096-0.44727 0.14062-0.11959 0.08966-0.20312 0.22586-0.20312 0.38086 0 0.15539 0.08551 0.29117 0.20508 0.38086 0.03655 0.02717 0.05273 0.05925 0.05273 0.07813 0 0.03194-0.02275 0.05469-0.05469 0.05469h-0.97852c-0.28604 0-0.51953 0.23545-0.51953 0.52148v0.45898c-1e-6 0.17526 0.14311 0.32031 0.31836 0.32031 0.13007 0 0.22915-0.07693 0.29102-0.16016 0.05114-0.06819 0.11002-0.09766 0.16992-0.09766 0.05948 0 0.11701 0.02968 0.16797 0.09766 0.05096 0.06797 0.08789 0.17112 0.08789 0.28711s-0.03693 0.21914-0.08789 0.28711c-0.05096 0.06797-0.10849 0.09961-0.16797 0.09961-0.0599 0-0.11877-0.03141-0.16992-0.09961-0.06186-0.08324-0.16095-0.16016-0.29102-0.16016-0.17526 0-0.31836 0.14506-0.31836 0.32031v0.97656c-1e-6 0.28603 0.2335 0.52148 0.51953 0.52148h0.97852c0.17526 0 0.32031-0.14506 0.32031-0.32031 0-0.13007-0.07693-0.22915-0.16016-0.29102-0.06819-0.05114-0.09961-0.10807-0.09961-0.16797 0-0.05948 0.03164-0.11896 0.09961-0.16992 0.06797-0.05096 0.17112-0.08594 0.28711-0.08594s0.21718 0.03497 0.28516 0.08594c0.06797 0.05096 0.09961 0.11044 0.09961 0.16992 0 0.0599-0.03141 0.11681-0.09961 0.16797-0.08324 0.06187-0.16016 0.16096-0.16016 0.29102 0 0.17526 0.14506 0.32031 0.32031 0.32031h0.46094c0.28604 0 0.51953-0.23545 0.51953-0.52148v-0.97656c0-0.03195 0.0247-0.05664 0.05664-0.05664 0.01886 0 0.05095 0.01813 0.07813 0.05469 0.08969 0.11959 0.22548 0.20508 0.38086 0.20508 0.155 0 0.2912-0.08548 0.38086-0.20508 0.08966-0.11959 0.14062-0.2756 0.14062-0.44531s-0.05096-0.32572-0.14062-0.44531c-0.08966-0.1196-0.22586-0.20508-0.38086-0.20508-0.15539 0-0.29118 0.08552-0.38086 0.20508-0.02716 0.03655-0.05925 0.05469-0.07813 0.05469-0.03194 0-0.05664-0.0247-0.05664-0.05664v-0.45898c0-0.28603-0.2335-0.52148-0.51953-0.52148h-0.46094c-0.03195 0-0.05469-0.02275-0.05469-0.05469 0-0.01886 0.01618-0.05095 0.05273-0.07813h2e-3c0.11959-0.08969 0.20508-0.22548 0.20508-0.38086 0-0.155-0.08548-0.2912-0.20508-0.38086-0.11959-0.08966-0.2756-0.14062-0.44531-0.14062zm0 0.26367c0.11599 0 0.21718 0.03693 0.28516 0.08789 0.06797 0.05096 0.09961 0.11044 0.09961 0.16992 0 0.0599-0.03142 0.11683-0.09961 0.16797-0.08322 0.06186-0.16016 0.16095-0.16016 0.29102 0 0.17525 0.14505 0.32031 0.32031 0.32031h0.46094c0.14293 0 0.25586 0.11293 0.25586 0.25586v0.45898c0 0.17525 0.14505 0.32031 0.32031 0.32031 0.12939 0 0.22714-0.0774 0.28906-0.16016 0.05116-0.0682 0.11003-0.09766 0.16992-0.09766 0.05948 0 0.11896 0.02968 0.16992 0.09766 0.05096 0.06797 0.08594 0.17112 0.08594 0.28711s-0.03498 0.21914-0.08594 0.28711c-0.05096 0.06797-0.11044 0.09961-0.16992 0.09961-0.05938 0-0.11714-0.03263-0.16797-0.09961h-2e-3c-0.06192-0.08273-0.15966-0.16016-0.28906-0.16016-0.17525 0-0.32031 0.14505-0.32031 0.32031v0.97656c0 0.14293-0.11293 0.25781-0.25586 0.25781h-0.46094c-0.03194 0-0.05469-0.0247-0.05469-0.05664 0-0.01888 0.01618-0.05096 0.05273-0.07813h2e-3c0.11956-0.08968 0.20508-0.22546 0.20508-0.38086 0-0.155-0.08548-0.2912-0.20508-0.38086-0.11959-0.08966-0.2756-0.14062-0.44531-0.14062s-0.32767 0.05096-0.44727 0.14062c-0.11959 0.08966-0.20312 0.22586-0.20312 0.38086 0 0.15538 0.08549 0.29117 0.20508 0.38086 0.03656 0.02718 0.05273 0.05927 0.05273 0.07813 0 0.03194-0.02274 0.05664-0.05469 0.05664h-0.97852c-0.14293 0-0.25586-0.11489-0.25586-0.25781v-0.97656c0-0.03194 0.02274-0.05664 0.05469-0.05664 0.01888 0 0.05291 0.01813 0.08008 0.05469 0.08968 0.11956 0.22547 0.20508 0.38086 0.20508 0.155 0 0.2912-0.08548 0.38086-0.20508 0.08966-0.11959 0.13867-0.2756 0.13867-0.44531s-0.04901-0.32572-0.13867-0.44531c-0.08966-0.1196-0.22586-0.20508-0.38086-0.20508-0.15538 0-0.29117 0.08549-0.38086 0.20508-0.02718 0.03656-0.06122 0.05469-0.08008 0.05469-0.03194 0-0.05469-0.0247-0.05469-0.05664v-0.45898c0-0.14292 0.11293-0.25586 0.25586-0.25586h0.97852c0.17525 0 0.32031-0.14505 0.32031-0.32031 0-0.13006-0.07691-0.22915-0.16016-0.29102-0.0682-0.05115-0.09961-0.10807-0.09961-0.16797 0-0.05948 0.03164-0.11896 0.09961-0.16992 0.06797-0.05096 0.17112-0.08789 0.28711-0.08789z"
+                  color="#000000"
+                  fill="#fff"
+                  style="-inkscape-stroke:none"></path
+                ></g
+              ></svg>
             <span
-              class="mr-5 opacity-0 -z-40  group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out mx-2 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+              class="opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out ml-3 md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
               >Extensions</span>
-            <span class="hidden md:block group-hover:block pf-c-nav__toggle">
-              <span class="pf-c-nav__toggle-icon" on:click="{() => toggleContributions()}">
+            <span class="pf-c-nav__toggle">
+              <span
+                class="pf-c-nav__toggle-icon opacity-0 -z-40 md:z-0 group-hover:z-0 md:opacity-100 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out">
                 <i class="fas fa-angle-right" aria-hidden="true"></i>
               </span>
             </span>
           </div>
-        </a>
-        {#if contributionsExpanded}
-          <section
-            class="hidden md:block group-hover:block pf-c-nav__subnav"
-            aria-labelledby="expandable-third-level-example-example-2">
-            <ul class="pf-c-nav__list">
-              {#each $contributions as contribution}
-                <li
-                  class="pf-c-nav__item {meta.url.startsWith('/contribs/' + contribution.name)
-                    ? 'dark:text-white pf-m-current'
-                    : 'dark:text-gray-400'} ">
-                  <div class="ml-2">
-                    <a href="/contribs/{contribution.name}" class="pf-c-nav__link">{contribution.name}</a>
+        </div>
+        <section class="pf-c-nav__subnav {contributionsExpanded ? 'hidden' : 'flex'}">
+          <ul class="pf-c-nav__list w-full">
+            {#each $contributions as contribution}
+              <li class="pf-c-nav__item">
+                <a href="/contribs/{contribution.name}" class="pf-c-nav__link">
+                  <div class="flex items-center w-full sm:-ml-1.5 md:-ml-1.5 mr-2">
+                    <InlineSVG src="{contribution.icon}" width="24" height="24" class="mr-4" />
+                    <span
+                      class="w-full text-ellipsis whitespace-nowrap overflow-hidden opacity-0 -z-40 md:z-0 md:opacity-100 group-hover:z-0 group-hover:opacity-100 group-hover:delay-150 group-hover:duration-75 group-hover:ease-in-out md:transition-opacity md:delay-150 md:duration-150 md:ease-in-out"
+                      title="{contribution.name}">{contribution.name}</span>
                   </div>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
+                </a>
+              </li>
+            {/each}
+          </ul>
+        </section>
       </li>
     {/if}
   </ul>
@@ -333,7 +243,7 @@ export let meta;
             id="settings"
             width="24"
             height="24"
-            viewBox="0 0 6.3499985 6.3500005"
+            viewBox="1.189 0.928 4.494 4.494"
             version="1.1"
             xml:space="preserve"
             xmlns="http://www.w3.org/2000/svg"
@@ -362,7 +272,7 @@ export let meta;
                 ></g
               ></g>
           </svg>
-          <span class="hidden md:block group-hover:block mx-2">Settings</span>
+          <span class="hidden md:block group-hover:block mx-3">Settings</span>
         </div>
       </a>
     </li>

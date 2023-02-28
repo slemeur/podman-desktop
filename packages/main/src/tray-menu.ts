@@ -78,6 +78,7 @@ export class TrayMenu {
             version: '',
             links: [],
             images: {},
+            warnings: [],
             installationSupport: false,
             containerProviderConnectionCreation: false,
             kubernetesProviderConnectionCreation: false,
@@ -391,7 +392,7 @@ export class TrayMenu {
       window.restore();
     }
     window?.show();
-    if (isMac) {
+    if (isMac()) {
       app.dock.show();
     }
     window?.focus();

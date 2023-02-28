@@ -68,7 +68,7 @@ jobs:
             core.exportVariable('totalDownloads', totalDownloads);
 
             //test using environment variable
-            console.log('ACTION_STATE=yellow' >> process.env.GITHUB_ENV);
+            console.log('ACTION_STATE=yellow' >> $GITHUB_ENV);
             process.env.ACTION_STATE = 'yellow';
           
             const actionState = process.env.ACTION_STATE;
@@ -83,6 +83,7 @@ jobs:
           
       - name: send-event-4
         run: |
+            echo "${{ env.ACTION_STATE3 }}"
             echo "${{ env.ACTION_STATE }}"
             curl https://api.segment.io/v1/track \
             -X POST \

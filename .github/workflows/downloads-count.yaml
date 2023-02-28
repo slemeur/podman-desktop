@@ -64,7 +64,7 @@ jobs:
             console.log(`::set-output name=totalWin::${totalWin}`);
             console.log(`::set-output name=totalLinux::${totalLinux}`);
 
-            const core = require('@actions/core');
+            //const core = require('@actions/core');
             core.exportVariable('totalDownloads', totalDownloads);
 
             //test using environment variable

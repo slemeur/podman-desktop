@@ -80,4 +80,4 @@ jobs:
                 "total": "${{ env.totalDownloads }}"
               }
             }' \
-            -u Mhl7GXADk5M1vG6r9FXztbCqWRQY8XPy
+            -u ${{ secrets.SEGMENT_WRITE_KEY }}

@@ -60,7 +60,7 @@ jobs:
             let totalDownloads = totalMac + totalWin + totalLinux;
 
             // Export results as outputs
-            ::set-output name=totalMac::${totalMac}`);
+            console.log(`::set-output name=totalMac::${totalMac}`);
             console.log(`::set-output name=totalWin::${totalWin}`);
             console.log(`::set-output name=totalLinux::${totalLinux}`);
 
@@ -85,7 +85,7 @@ jobs:
         run: |
             echo "${{ env.ACTION_STATE3 }}"
             echo "${{ env.ACTION_STATE }}"
-            echo "${{ env.totalDownloads }}"
+            echo "totaldownloads ${{ env.totalDownloads }}"
             curl https://api.segment.io/v1/track \
             -X POST \
             -H 'Content-Type: application/json' \

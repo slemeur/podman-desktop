@@ -1,6 +1,8 @@
 <script lang="ts">
 import type { ImageInfo } from '@podman-desktop/api';
 import { StatusIcon, Tab } from '@podman-desktop/ui-svelte';
+import { onDestroy, onMount } from 'svelte';
+import type { Unsubscriber } from 'svelte/store';
 import { router } from 'tinro';
 
 import Badge from '/@/lib/ui/Badge.svelte';
@@ -17,8 +19,10 @@ import { containersInfos } from '/@/stores/containers';
 import { context } from '/@/stores/context';
 import { imageCheckerProviders } from '/@/stores/image-checker-providers';
 import { imageFilesProviders } from '/@/stores/image-files-providers';
+import { imageOptimizerProviders } from '/@/stores/image-optimizer-providers';
 import { imagesInfos } from '/@/stores/images';
 import { viewsContributions } from '/@/stores/views';
+import type { ImageOptimizerInfo } from '/@api/image-optimizer-info';
 import type { ViewInfoUI } from '/@api/view-info';
 
 import { ImageUtils } from './image-utils';
@@ -80,6 +84,64 @@ let showCheckTab: boolean = $derived($imageCheckerProviders.length > 0);
 let showFilesTab: boolean = $derived($imageFilesProviders.length > 0);
 // Always show Optimize tab - the component handles empty provider state
 let showOptimizeTab: boolean = true;
+
+let optimizerProviders: ImageOptimizerInfo[] = $state([]);
+let providersUnsubscribe: Unsubscriber | undefined;
+
+function extractImageName(img: ImageInfo): string | undefined {
+  if (img.RepoTags && img.RepoTags.length > 0) {
+    const repoTag = img.RepoTags[0];
+    if (repoTag) {
+      const parts = repoTag.split('/');
+      const nameTag = parts[parts.length - 1];
+      if (nameTag) {
+        const [name] = nameTag.split(':');
+        return name;
+      }
+    }
+  }
+  return undefined;
+}
+
+async function checkForAlternative(): Promise<void> {
+  if (!imageInfo || optimizerProviders.length === 0) {
+    return;
+  }
+
+  try {
+    const imageName = extractImageName(imageInfo);
+    if (!imageName) {
+      return;
+    }
+
+    const provider = optimizerProviders[0];
+    if (provider) {
+      const tokenId = await window.getCancellableTokenSource();
+      await window.getImageOptimizerAlternative(provider.id, imageName, tokenId);
+      window.cancelToken(tokenId).catch(() => {});
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+onMount(() => {
+  providersUnsubscribe = imageOptimizerProviders.subscribe(_providers => {
+    optimizerProviders = [..._providers];
+    checkForAlternative().catch(() => {});
+  });
+});
+
+onDestroy(() => {
+  providersUnsubscribe?.();
+});
+
+$effect(() => {
+  // Re-check when image changes
+  if (imageInfo && optimizerProviders.length > 0) {
+    checkForAlternative().catch(() => {});
+  }
+});
 
 $effect(() => {
   if (!image) {

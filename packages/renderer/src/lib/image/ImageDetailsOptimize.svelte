@@ -11,7 +11,6 @@ import type { ImageOptimizerInfo, OptimizeResult } from '/@api/image-optimizer-i
 
 import DockerfileHelper from './DockerfileHelper.svelte';
 import RemovedBloatList from './RemovedBloatList.svelte';
-import SeverityChart from './SeverityChart.svelte';
 
 interface Props {
   imageInfo?: ImageInfo;
@@ -201,10 +200,10 @@ function handleInstallExtension(): void {
             </div>
           </div>
           <div class="flex items-center gap-8 bg-[var(--pd-content-card-bg)]/50 rounded-lg px-6 py-3">
-            <!-- CVEs Fixed -->
+            <!-- CVEs -->
             <div class="text-center">
               <div class="text-3xl font-bold text-purple-300">-{cvesFixed}</div>
-              <div class="text-xs text-[var(--pd-content-text)] opacity-60">CVEs Fixed</div>
+              <div class="text-xs text-[var(--pd-content-text)] opacity-60">CVEs</div>
             </div>
             <!-- CVE Reduction % -->
             <div class="text-center">
@@ -348,23 +347,129 @@ function handleInstallExtension(): void {
         </div>
       </div>
 
-      <!-- Action Bar -->
-      <div class="flex items-center gap-3">
-        <Button onclick={handlePullAlternative}>Try Hummingbird Image</Button>
-        <button class="text-sm text-[var(--pd-link)] hover:underline cursor-pointer" onclick={handleLearnMore}>
-          Learn more about Hummingbird
-        </button>
+      <!-- Try the Alternate Base Image - Combined Section -->
+      <div class="bg-[var(--pd-content-card-bg)] rounded-lg border border-[var(--pd-content-card-border)] p-5">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-9 h-9 bg-purple-500/20 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.3"/>
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+            </svg>
+          </div>
+          <div>
+            <span class="text-base font-bold text-[var(--pd-content-header)]">Try the Alternate Base Image</span>
+            <p class="text-xs text-[var(--pd-content-text)] opacity-70">Switch to Hummingbird for enhanced security and performance</p>
+          </div>
+        </div>
+        
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-2 gap-6 mt-4">
+          <!-- Left: Benefits List -->
+          <div class="space-y-3">
+            <div class="flex items-start gap-2">
+              <div class="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-2.5 h-2.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-[var(--pd-content-header)]">{cveReduction}% Fewer Vulnerabilities</span>
+                <p class="text-[10px] text-[var(--pd-content-text)] opacity-60">Only {optimizeResult.alternative.cveCount} CVE vs {optimizeResult.currentImage.cveCount}</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-2">
+              <div class="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-2.5 h-2.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-[var(--pd-content-header)]">{sizeReduction}% Smaller Image Size</span>
+                <p class="text-[10px] text-[var(--pd-content-text)] opacity-60">{optimizeResult.alternative.size} vs {optimizeResult.currentImage.size}</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-2">
+              <div class="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-2.5 h-2.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-[var(--pd-content-header)]">Enterprise-Grade Security</span>
+                <p class="text-[10px] text-[var(--pd-content-text)] opacity-60">FIPS-compliant with continuous scanning</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-2">
+              <div class="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-2.5 h-2.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-[var(--pd-content-header)]">Minimal Attack Surface</span>
+                <p class="text-[10px] text-[var(--pd-content-text)] opacity-60">Distroless with essential components only</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Right: Evaluation Criteria -->
+          <div class="space-y-3">
+            <!-- Image Size Comparison -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-[var(--pd-content-text)]">Image Size</span>
+                <span class="text-xs font-semibold text-purple-400">-{sizeReduction}%</span>
+              </div>
+              <div class="space-y-1">
+                <div class="h-5 rounded bg-purple-500/40 flex items-center px-2" style="width: {100 - sizeReduction}%">
+                  <span class="text-[10px] font-medium text-purple-200">{optimizeResult.alternative.size}</span>
+                </div>
+                <div class="h-5 rounded bg-purple-500/20 flex items-center px-2" style="width: 100%">
+                  <span class="text-[10px] font-medium text-purple-200/60">{optimizeResult.currentImage.size}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- CVE Count Comparison -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-[var(--pd-content-text)]">CVE Count</span>
+                <span class="text-xs font-semibold text-purple-400">-{cveReduction}%</span>
+              </div>
+              <div class="space-y-1">
+                <div class="h-5 rounded bg-purple-500/40 flex items-center px-2" style="width: {optimizeResult.currentImage.cveCount > 0 ? Math.max(8, (optimizeResult.alternative.cveCount / optimizeResult.currentImage.cveCount) * 100) : 8}%">
+                  <span class="text-[10px] font-medium text-purple-200">{optimizeResult.alternative.cveCount}</span>
+                </div>
+                <div class="h-5 rounded bg-purple-500/20 flex items-center px-2" style="width: 100%">
+                  <span class="text-[10px] font-medium text-purple-200/60">{optimizeResult.currentImage.cveCount}</span>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+        
+        <!-- CTA Button & Learn More -->
+        <div class="flex items-center gap-4 mt-5">
+          <button 
+            class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+            onclick={handlePullAlternative}
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.3"/>
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+            </svg>
+            Switch to Hummingbird
+          </button>
+          <button class="text-sm text-[var(--pd-link)] hover:underline cursor-pointer" onclick={handleLearnMore}>
+            Learn more about Hummingbird
+          </button>
+        </div>
       </div>
-
-      <!-- Severity Chart -->
-      {#if optimizeResult.currentImage.severityDistribution && optimizeResult.alternative.severityDistribution}
-        <SeverityChart
-          currentSeverity={optimizeResult.currentImage.severityDistribution}
-          alternativeSeverity={optimizeResult.alternative.severityDistribution}
-          currentLabel={imageInfo?.RepoTags?.[0] ?? 'Current'}
-          alternativeLabel="Hummingbird"
-        />
-      {/if}
 
       <!-- Removed Bloat List -->
       {#if optimizeResult.removedBloat && optimizeResult.removedBloat.length > 0}

@@ -7,6 +7,7 @@ import type { Unsubscriber } from 'svelte/store';
 import { router } from 'tinro';
 
 import { imageOptimizerProviders } from '/@/stores/image-optimizer-providers';
+import { webviews } from '/@/stores/webviews';
 import type { ImageOptimizerInfo, OptimizeResult } from '/@api/image-optimizer-info';
 
 import DockerfileHelper from './DockerfileHelper.svelte';
@@ -143,7 +144,12 @@ function handleViewCatalog(): void {
   window
     .telemetryTrack('imageOptimize.viewCatalog')
     .catch((err: unknown) => console.error('Error tracking telemetry', err));
-  router.goto('/webviews/hummingbird-catalog');
+
+  // Find the Hummingbird catalog webview by its viewType
+  const hummingbirdWebview = $webviews.find(w => w.viewType === 'hummingbird-catalog');
+  if (hummingbirdWebview) {
+    router.goto(`/webviews/${hummingbirdWebview.id}`);
+  }
 }
 
 async function startVulnerabilityAnalysis(): Promise<void> {

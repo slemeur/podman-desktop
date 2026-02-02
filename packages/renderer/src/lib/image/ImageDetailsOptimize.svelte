@@ -1,17 +1,9 @@
 <script lang="ts">
-import {
-  faArrowRight,
-  faBoxOpen,
-  faCalendarCheck,
-  faExternalLinkAlt,
-  faLeaf,
-  faShieldHalved,
-} from '@fortawesome/free-solid-svg-icons';
+import { faLeaf, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 import type { ImageInfo } from '@podman-desktop/api';
-import { Button, EmptyScreen, Link, Tooltip } from '@podman-desktop/ui-svelte';
+import { Button, EmptyScreen } from '@podman-desktop/ui-svelte';
 import { onDestroy, onMount } from 'svelte';
 import type { Unsubscriber } from 'svelte/store';
-import Fa from 'svelte-fa';
 import { router } from 'tinro';
 
 import { imageOptimizerProviders } from '/@/stores/image-optimizer-providers';
@@ -184,225 +176,184 @@ function handleInstallExtension(): void {
       <Button onclick={handleInstallExtension}>Install Extension</Button>
     </div>
   {:else if optimizeResult?.alternative}
+    {@const sizeReduction = optimizeResult.currentImage.sizeBytes && optimizeResult.alternative.sizeBytes 
+      ? Math.round((1 - optimizeResult.alternative.sizeBytes / optimizeResult.currentImage.sizeBytes) * 100) 
+      : 0}
+    {@const cveReduction = optimizeResult.currentImage.cveCount > 0 
+      ? (optimizeResult.alternative.cveCount === 0 ? 100 : Math.round((1 - optimizeResult.alternative.cveCount / optimizeResult.currentImage.cveCount) * 100))
+      : 0}
+    {@const cvesFixed = optimizeResult.currentImage.cveCount - optimizeResult.alternative.cveCount}
     <div class="flex flex-col gap-5 overflow-auto">
-      <!-- Header -->
-      <div class="flex flex-col gap-3 mb-2">
-        <h2 class="flex items-center gap-2 text-lg font-semibold text-[var(--pd-content-header)]">
-          <Fa icon={faLeaf} class="text-green-500" size="lg" />
-          <span>Hardened Alternative Available</span>
-        </h2>
-        <p class="text-sm text-[var(--pd-content-text)] opacity-70">
-          A secure, optimized version of <span class="font-semibold text-[var(--pd-content-header)]">{imageInfo?.RepoTags?.[0] ?? 'this image'}</span> is available
-        </p>
-        <div class="inline-flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-2.5">
-          <div class="flex items-center justify-center w-7 h-7 rounded-full bg-green-500/20">
-            <Fa icon={faLeaf} class="text-green-500" size="xs" />
+      <!-- Alternate Image Found Banner -->
+      <div class="bg-gradient-to-r from-purple-600/20 to-purple-500/10 border border-purple-500/40 rounded-lg p-5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-purple-500/30 rounded-full flex items-center justify-center border-2 border-purple-400/50">
+              <svg class="w-7 h-7 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.3"/>
+                <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                <path d="M9 12l2 2 4-4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-lg font-bold text-purple-300">Hardened Alternative Found!</span>
+              <span class="text-sm text-[var(--pd-content-text)] opacity-70">A Hummingbird image is available with significant security improvements</span>
+            </div>
           </div>
-          <div class="flex flex-col gap-0.5">
-            <span class="text-[10px] text-green-500/80 uppercase tracking-wide font-medium">Recommended Alternative</span>
-            <Link onclick={(): void => { window.openExternal(`https://${optimizeResult?.alternative.registry}`).catch(() => {}); }} icon={faExternalLinkAlt}>
-              <span class="text-green-400 font-semibold">{optimizeResult.alternative.registry}</span>
-            </Link>
+          <div class="flex items-center gap-8 bg-[var(--pd-content-card-bg)]/50 rounded-lg px-6 py-3">
+            <!-- CVEs Fixed -->
+            <div class="text-center">
+              <div class="text-3xl font-bold text-purple-300">-{cvesFixed}</div>
+              <div class="text-xs text-[var(--pd-content-text)] opacity-60">CVEs Fixed</div>
+            </div>
+            <!-- CVE Reduction % -->
+            <div class="text-center">
+              <div class="text-3xl font-bold text-purple-300">{cveReduction}%</div>
+              <div class="text-xs text-[var(--pd-content-text)] opacity-60">Fewer CVEs</div>
+            </div>
+            <!-- Size Reduction -->
+            <div class="text-center">
+              <div class="text-3xl font-bold text-purple-300">-{sizeReduction}%</div>
+              <div class="text-xs text-[var(--pd-content-text)] opacity-60">Smaller Size</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Benefits Summary Bar -->
-      <div class="flex items-stretch bg-[var(--pd-content-card-bg)] rounded-lg border border-[var(--pd-content-card-border)] divide-x divide-[var(--pd-content-card-border)]">
-          <!-- Size Reduction -->
-          {#if optimizeResult.currentImage.sizeBytes && optimizeResult.alternative.sizeBytes}
-            {@const sizeReduction = Math.round((1 - optimizeResult.alternative.sizeBytes / optimizeResult.currentImage.sizeBytes) * 100)}
-            <div class="flex-1 flex flex-col gap-1 px-5 py-3">
-              <span class="text-[10px] text-[var(--pd-content-text)] opacity-50 uppercase tracking-wider font-medium">Size Reduction</span>
-              <div class="flex items-baseline gap-2">
-                <span class="text-xl font-bold text-green-500">{sizeReduction}%</span>
-                <span class="text-xs text-[var(--pd-content-text)] opacity-60">smaller</span>
-              </div>
+      <!-- Side by Side Cards -->
+      <div class="grid grid-cols-2 gap-5">
+        <!-- Hummingbird Card -->
+        <div class="bg-[var(--pd-content-card-bg)] rounded-lg border border-purple-500/30 p-5">
+          <!-- Header -->
+          <div class="flex items-center gap-3 mb-4">
+            <svg class="w-8 h-8 text-purple-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.15"/>
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+            </svg>
+            <div class="min-w-0 flex-1">
+              <span class="text-base font-bold text-[var(--pd-content-header)] block">{optimizeResult.alternative.registry}:{optimizeResult.alternative.tag ?? 'latest'}</span>
+              <span class="text-xs text-purple-400 block">Hummingbird hardened image</span>
             </div>
-          {/if}
-
-          <!-- CVE Reduction -->
-          {#if optimizeResult.currentImage.cveCount > 0}
-            {@const cveReduction = optimizeResult.alternative.cveCount === 0 ? 100 : Math.round((1 - optimizeResult.alternative.cveCount / optimizeResult.currentImage.cveCount) * 100)}
-            <div class="flex-1 flex flex-col gap-1 px-5 py-3">
-              <span class="text-[10px] text-[var(--pd-content-text)] opacity-50 uppercase tracking-wider font-medium">Vulnerabilities</span>
-              <div class="flex items-baseline gap-2">
-                <span class="text-xl font-bold text-green-500">{optimizeResult.currentImage.cveCount} → {optimizeResult.alternative.cveCount}</span>
-                <span class="text-xs text-green-500 font-medium">-{cveReduction}%</span>
-              </div>
+          </div>
+          
+          <!-- Metadata List -->
+          <div class="space-y-3">
+            <!-- Version/Tag Row -->
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Version</span>
+              <span class="text-sm font-mono text-purple-400">{optimizeResult.alternative.tag ?? 'latest'}</span>
             </div>
-          {/if}
-
-          <!-- Severity Breakdown -->
-          {#if optimizeResult.currentImage.severityDistribution && optimizeResult.alternative.severityDistribution}
-            <div class="flex-1 flex flex-col gap-1.5 px-5 py-3">
-              <span class="text-[10px] text-[var(--pd-content-text)] opacity-50 uppercase tracking-wider font-medium">CVE Severity Comparison</span>
-              <div class="flex items-center gap-3">
-                <!-- Current Image -->
-                <div class="flex items-center gap-1">
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-red-600 text-white cursor-help" title="Critical: {optimizeResult.currentImage.severityDistribution.critical} CVEs - Highest severity, immediate action required">{optimizeResult.currentImage.severityDistribution.critical}</span>
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-orange-500 text-white cursor-help" title="High: {optimizeResult.currentImage.severityDistribution.high} CVEs - Serious vulnerabilities, should be addressed soon">{optimizeResult.currentImage.severityDistribution.high}</span>
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-amber-400 text-gray-900 cursor-help" title="Medium: {optimizeResult.currentImage.severityDistribution.medium} CVEs - Moderate risk, plan to address">{optimizeResult.currentImage.severityDistribution.medium}</span>
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-yellow-300 text-gray-900 cursor-help" title="Low: {optimizeResult.currentImage.severityDistribution.low} CVEs - Minor issues, low priority">{optimizeResult.currentImage.severityDistribution.low}</span>
-                </div>
-                <Fa icon={faArrowRight} class="text-green-500" size="sm" />
-                <!-- Alternative Image -->
-                <div class="flex items-center gap-1">
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-green-500/20 text-green-500 border border-green-500/30 cursor-help" title="Critical: {optimizeResult.alternative.severityDistribution.critical} CVEs in Hummingbird image">{optimizeResult.alternative.severityDistribution.critical}</span>
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-green-500/20 text-green-500 border border-green-500/30 cursor-help" title="High: {optimizeResult.alternative.severityDistribution.high} CVEs in Hummingbird image">{optimizeResult.alternative.severityDistribution.high}</span>
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-green-500/20 text-green-500 border border-green-500/30 cursor-help" title="Medium: {optimizeResult.alternative.severityDistribution.medium} CVEs in Hummingbird image">{optimizeResult.alternative.severityDistribution.medium}</span>
-                  <span class="inline-flex items-center justify-center min-w-[22px] px-1 py-0.5 rounded text-[11px] font-bold bg-green-500/20 text-green-500 border border-green-500/30 cursor-help" title="Low: {optimizeResult.alternative.severityDistribution.low} CVEs in Hummingbird image">{optimizeResult.alternative.severityDistribution.low}</span>
-                </div>
-              </div>
-            </div>
-          {/if}
-
-          <!-- Signed Status -->
-          {#if optimizeResult.alternative.isSigned}
-            <div class="flex-1 flex flex-col gap-1 px-5 py-3">
-              <span class="text-[10px] text-[var(--pd-content-text)] opacity-50 uppercase tracking-wider font-medium">Security</span>
+            <!-- Vulnerabilities Row -->
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Vulnerabilities</span>
               <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-                <span class="text-sm font-semibold text-green-500">Signed & Verified</span>
+                <div class="flex items-center gap-1">
+                  <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.alternative.severityDistribution?.critical ? 'bg-red-600 text-white' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="Critical">{optimizeResult.alternative.severityDistribution?.critical ?? 0}</span>
+                  <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.alternative.severityDistribution?.high ? 'bg-orange-500 text-white' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="High">{optimizeResult.alternative.severityDistribution?.high ?? 0}</span>
+                  <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.alternative.severityDistribution?.medium ? 'bg-amber-400 text-gray-900' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="Medium">{optimizeResult.alternative.severityDistribution?.medium ?? 0}</span>
+                  <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.alternative.severityDistribution?.low ? 'bg-yellow-300 text-gray-900' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="Low">{optimizeResult.alternative.severityDistribution?.low ?? 0}</span>
+                </div>
+                <span class="text-xs text-purple-400 font-medium">(-{cvesFixed})</span>
               </div>
             </div>
-          {/if}
-
-          <!-- Last Updated -->
-          {#if optimizeResult.historicalData?.lastUpdated}
-            <div class="flex-1 flex flex-col gap-1 px-5 py-3">
-              <span class="text-[10px] text-[var(--pd-content-text)] opacity-50 uppercase tracking-wider font-medium">Last Updated</span>
-            <span class="text-sm font-medium text-[var(--pd-content-text)]">
-              {new Date(optimizeResult.historicalData.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </span>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Size</span>
+              <span class="text-sm text-[var(--pd-content-header)]">{optimizeResult.alternative.size ?? '—'} <span class="text-xs text-purple-400 font-medium">(-{sizeReduction}%)</span></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Last Updated</span>
+              <span class="text-sm text-[var(--pd-content-header)]">
+                {#if optimizeResult.historicalData?.lastUpdated}
+                  {new Date(optimizeResult.historicalData.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {:else}
+                  Today
+                {/if}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Signed</span>
+              {#if optimizeResult.alternative.isSigned}
+                <span class="flex items-center gap-1 text-sm text-green-500">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                  </svg>
+                  Yes
+                </span>
+              {:else}
+                <span class="text-sm text-[var(--pd-content-text)] opacity-40">No</span>
+              {/if}
+            </div>
           </div>
-        {/if}
+        </div>
+
+        <!-- Current Image Card -->
+        <div class="bg-[var(--pd-content-card-bg)] rounded-lg border border-[var(--pd-content-card-border)] p-5">
+          <!-- Header -->
+          <div class="flex items-center gap-3 mb-4">
+            <svg class="w-8 h-8 text-[var(--pd-content-text)] opacity-40 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.1"/>
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+            </svg>
+            <div class="min-w-0 flex-1">
+              <span class="text-base font-bold text-[var(--pd-content-header)] block">{imageInfo?.RepoTags?.[0] ?? 'Unknown'}</span>
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 block">Current image</span>
+            </div>
+          </div>
+          
+          <!-- Metadata List -->
+          <div class="space-y-3">
+            <!-- Version/Tag Row -->
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Version</span>
+              <span class="text-sm font-mono text-[var(--pd-content-header)]">{imageInfo?.RepoTags?.[0]?.split(':')[1] ?? 'latest'}</span>
+            </div>
+            <!-- Vulnerabilities Row -->
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Vulnerabilities</span>
+              <div class="flex items-center gap-1">
+                <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.currentImage.severityDistribution?.critical ? 'bg-red-600 text-white' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="Critical">{optimizeResult.currentImage.severityDistribution?.critical ?? 0}</span>
+                <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.currentImage.severityDistribution?.high ? 'bg-orange-500 text-white' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="High">{optimizeResult.currentImage.severityDistribution?.high ?? 0}</span>
+                <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.currentImage.severityDistribution?.medium ? 'bg-amber-400 text-gray-900' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="Medium">{optimizeResult.currentImage.severityDistribution?.medium ?? 0}</span>
+                <span class="w-7 h-6 flex items-center justify-center text-xs font-semibold rounded {optimizeResult.currentImage.severityDistribution?.low ? 'bg-yellow-300 text-gray-900' : 'bg-[var(--pd-content-card-border)] text-[var(--pd-content-text)] opacity-50'}" title="Low">{optimizeResult.currentImage.severityDistribution?.low ?? 0}</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Size</span>
+              <span class="text-sm text-[var(--pd-content-header)]">{optimizeResult.currentImage.size}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Created</span>
+              <span class="text-sm text-[var(--pd-content-header)]">
+                {#if imageInfo?.Created}
+                  {new Date(imageInfo.Created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {:else}
+                  —
+                {/if}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-xs text-[var(--pd-content-text)] opacity-50 uppercase tracking-wide">Signed</span>
+              {#if optimizeResult.currentImage.isSigned}
+                <span class="flex items-center gap-1 text-sm text-green-500">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                  </svg>
+                  Yes
+                </span>
+              {:else}
+                <span class="text-sm text-[var(--pd-content-text)] opacity-40">No</span>
+              {/if}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Comparison Card -->
-      <div class="bg-[var(--pd-content-card-bg)] rounded-lg p-5">
-        <div class="grid grid-cols-[1fr_auto_1fr] gap-4 items-stretch">
-          <!-- Current Image -->
-          <div class="flex flex-col gap-3 p-4 rounded-lg bg-[var(--pd-content-bg)] border-l-4 border-red-500/50">
-            <div class="flex items-center gap-2">
-              <Fa icon={faBoxOpen} class="text-[var(--pd-content-text)] opacity-70" size="sm" />
-              <span class="text-xs text-[var(--pd-content-text)] opacity-60 uppercase tracking-wide font-medium">Current Image</span>
-            </div>
-            <div class="flex items-center gap-2 min-h-[24px]">
-              <Fa icon={faBoxOpen} class="text-[var(--pd-content-text)] opacity-60" size="xs" />
-              <span class="text-[var(--pd-content-text)] font-semibold break-all">{imageInfo?.RepoTags?.[0] ?? 'Unknown'}</span>
-            </div>
-            <div class="flex flex-col gap-2.5 mt-auto">
-              <!-- Size -->
-              <Tooltip tip="Compressed image size" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faBoxOpen} class="text-[var(--pd-content-text)] opacity-60" size="xs" />
-                  <span class="text-sm text-[var(--pd-content-text)]">{optimizeResult.currentImage.size}</span>
-                </div>
-              </Tooltip>
-              <!-- Date -->
-              <Tooltip tip="Image creation date" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faCalendarCheck} class="text-[var(--pd-content-text)] opacity-60" size="xs" />
-                  <span class="text-sm text-[var(--pd-content-text)] opacity-70">
-                    {#if imageInfo?.Created}
-                      {new Date(imageInfo.Created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {:else}
-                      —
-                    {/if}
-                  </span>
-                </div>
-              </Tooltip>
-              <!-- CVEs -->
-              <Tooltip tip="Known vulnerabilities in this image" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faShieldHalved} class="text-red-500" size="xs" />
-                  <span class="text-sm text-red-500 font-semibold">{optimizeResult.currentImage.cveCount ?? 0} CVEs</span>
-                </div>
-              </Tooltip>
-              <!-- Signed -->
-              <Tooltip tip="Image signature status" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faShieldHalved} class="text-[var(--pd-content-text)] opacity-40" size="xs" />
-                  <span class="text-sm text-[var(--pd-content-text)] opacity-50">Not signed</span>
-                </div>
-              </Tooltip>
-            </div>
-          </div>
-
-          <!-- Arrow -->
-          <div class="flex items-center justify-center px-2">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10">
-              <Fa icon={faArrowRight} class="text-green-500" size="lg" />
-            </div>
-          </div>
-
-          <!-- Alternative Image -->
-          <div class="flex flex-col gap-3 p-4 rounded-lg bg-green-500/5 border-l-4 border-green-500">
-            <div class="flex items-center gap-2">
-              <Fa icon={faLeaf} class="text-green-500" size="sm" />
-              <span class="text-xs text-green-500 uppercase tracking-wide font-medium">Hummingbird Alternative</span>
-            </div>
-            <div class="min-h-[24px]">
-              <Link onclick={(): void => { window.openExternal(`https://${optimizeResult?.alternative.registry}`).catch(() => {}); }} icon={faExternalLinkAlt}>
-                <span class="text-green-400 font-semibold">{optimizeResult.alternative.registry}</span>
-              </Link>
-            </div>
-            <div class="flex flex-col gap-2.5 mt-auto">
-              <!-- Size -->
-              <Tooltip tip="Compressed image size - optimized and smaller" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faBoxOpen} class="text-green-500" size="xs" />
-                  <span class="text-sm text-green-500">{optimizeResult.alternative.size ?? '—'}</span>
-                </div>
-              </Tooltip>
-              <!-- Date -->
-              <Tooltip tip="Last security update for this image" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faCalendarCheck} class="text-green-500" size="xs" />
-                  <span class="text-sm text-green-500">
-                    {#if optimizeResult.historicalData?.lastUpdated}
-                      {new Date(optimizeResult.historicalData.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {:else}
-                      —
-                    {/if}
-                  </span>
-                </div>
-              </Tooltip>
-              <!-- CVEs -->
-              <Tooltip tip="Known vulnerabilities - hardened for security" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  <Fa icon={faShieldHalved} class="text-green-500" size="xs" />
-                  <span class="text-sm text-green-500 font-semibold">{optimizeResult.alternative.cveCount ?? 0} CVEs</span>
-                </div>
-              </Tooltip>
-              <!-- Signed -->
-              <Tooltip tip="Image is cryptographically signed and verified" bottom>
-                <div class="flex items-center gap-2 h-6">
-                  {#if optimizeResult.alternative.isSigned}
-                    <svg class="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    <span class="text-sm text-green-500 font-medium">Signed</span>
-                  {:else}
-                    <Fa icon={faShieldHalved} class="text-[var(--pd-content-text)] opacity-40" size="xs" />
-                    <span class="text-sm text-[var(--pd-content-text)] opacity-50">Not signed</span>
-                  {/if}
-                </div>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-
-        <!-- Action Button -->
-        <div class="mt-4 flex items-center gap-3">
-          <Button onclick={handlePullAlternative}>Pull Hummingbird Image</Button>
-          <button class="text-xs text-[var(--pd-link)] hover:underline cursor-pointer" onclick={handleLearnMore}>
-            Learn more
-          </button>
-        </div>
+      <!-- Action Bar -->
+      <div class="flex items-center gap-3">
+        <Button onclick={handlePullAlternative}>Try Hummingbird Image</Button>
+        <button class="text-sm text-[var(--pd-link)] hover:underline cursor-pointer" onclick={handleLearnMore}>
+          Learn more about Hummingbird
+        </button>
       </div>
 
       <!-- Severity Chart -->

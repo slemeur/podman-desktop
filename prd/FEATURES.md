@@ -114,11 +114,45 @@ Add a new "Image Optimizations" tab in the Image Details view that shows optimiz
 
 #### Active State (Extension Installed):
 
-To be defined in next iteration.
+When an Image Optimizer extension is installed and an alternative is found, display:
+
+**Comparison Dashboard:**
+
+- Side-by-side comparison of current image vs Hummingbird alternative
+- Current image details: name, size, CVE count
+- Alternative image details: registry path, size, CVE count, signed status
+- Savings summary: percentage of CVE reduction and size reduction
+- Historical security badge showing "Daily Avg CVEs" for stability indication
+
+**Severity Breakdown Chart:**
+
+- Horizontal bar chart using Chart.js
+- Side-by-side comparison of Critical, High, Medium, Low CVE counts
+- Color-coded bars (red/orange/yellow/blue for current, green for alternative)
+- Legend showing both images
+
+**"What's Missing?" Section:**
+
+- List of bloat removed from the hardened image
+- Items displayed as tags (e.g., bash, apt, wget, curl, gcc, make, perl)
+- Explanation text about reduced attack surface
+
+**Dockerfile Helper:**
+
+- Code snippet showing the new FROM line
+- Copy-to-clipboard button
+- Example: `FROM quay.io/hummingbird/nodejs:20`
+
+**Actions:**
+
+- "Pull Hummingbird Image" button to pull the alternative
+- "Learn more" link to external documentation
 
 #### No Alternative Available State:
 
-To be defined in next iteration.
+- Title: "No Optimized Alternative"
+- Message: "No Hummingbird alternative is available for this image at this time."
+- "Learn More About Hummingbird" button linking to documentation
 
 ---
 
@@ -130,7 +164,58 @@ To be defined in next iteration.
 Create a new extension API that allows extensions to provide image optimization recommendations.
 
 **Requirements:**
-To be defined by Eng.
+
+#### API Types:
+
+```typescript
+interface SeverityDistribution {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+interface ImageMetrics {
+  tag?: string;
+  size: string;
+  sizeBytes?: number;
+  cveCount: number;
+  isSigned: boolean;
+  severityDistribution?: SeverityDistribution;
+}
+
+interface HistoricalSecurityData {
+  dailyAverageCVEs: number;
+  lastUpdated: string;
+}
+
+interface OptimizeResult {
+  currentImage: ImageMetrics;
+  alternative: ImageMetrics & {
+    imageName: string;
+    registry: string;
+  };
+  historicalData?: HistoricalSecurityData;
+  removedBloat?: string[];
+}
+
+interface ImageOptimizerProvider {
+  getAlternative(imageName: string, token?: CancellationToken): Promise<OptimizeResult | undefined>;
+  getCatalog?(token?: CancellationToken): Promise<HummingbirdCatalogEntry[]>;
+}
+```
+
+#### Backend Implementation:
+
+- `ImageOptimizerImpl` class to manage provider registration
+- EventEmitter for provider updates
+- Methods: `registerImageOptimizerProvider`, `getAlternative`, `getCatalog`, `getImageOptimizerProviders`
+
+#### IPC Handlers:
+
+- `image-optimizer:getProviders` - List registered providers
+- `image-optimizer:getAlternative` - Get optimization recommendation for an image
+- `image-optimizer:getCatalog` - Get full catalog of available alternatives
 
 **Acceptance Criteria:**
 
@@ -138,6 +223,9 @@ To be defined by Eng.
 - [ ] Provider registration emits update events
 - [ ] Frontend can query registered providers
 - [ ] Frontend can request optimization recommendations
+- [ ] API supports severity distribution data
+- [ ] API supports historical security data
+- [ ] API supports removed bloat list
 - [ ] Proper cleanup on provider disposal
 
 ---
@@ -177,6 +265,49 @@ Add the Hummingbird extension to the extensions catalog so users can discover an
 Create a placeholder Hummingbird extension that implements the Image Optimizer Provider API.
 
 **Requirements:**
+
+#### Extension Manifest (`package.json`):
+
+- Name: `hummingbird`
+- Display Name: "Hummingbird Optimizer"
+- Publisher: "hummingbird"
+- Version: "0.0.1"
+- Categories: `["Security", "Images"]`
+
+#### Catalog (`catalog.ts`):
+
+- Maintain mapping of standard images to hardened alternatives
+- Include metadata: CVE counts, sizes, signed status
+- Include severity distribution (Critical, High, Medium, Low)
+- Include removed bloat list
+- Include daily average CVE metric
+- Support lookup by image name
+
+#### Provider Implementation (`extension.ts`):
+
+- Register as ImageOptimizerProvider on activation
+- Implement `getAlternative()` to lookup catalog and return full OptimizeResult
+- Implement `getCatalog()` to return full catalog
+- Proper cleanup on deactivation
+
+#### Sample Catalog Entries:
+
+| Original | Hardened                   | Current CVEs | Current Severity (C/H/M/L) | Hardened CVEs | Removed Bloat                          |
+| -------- | -------------------------- | ------------ | -------------------------- | ------------- | -------------------------------------- |
+| node     | quay.io/hummingbird/nodejs | 284          | 12/45/127/100              | 0             | bash, apt, wget, curl, gcc, make, perl |
+| python   | quay.io/hummingbird/python | 189          | 8/32/89/60                 | 0             | bash, apt, wget, curl, gcc, make, pip  |
+| golang   | quay.io/hummingbird/go     | 95           | 3/18/45/29                 | 0             | bash, apt, wget, curl, gcc, git        |
+| openjdk  | quay.io/hummingbird/jdk    | 312          | 18/67/156/71               | 0             | bash, apt, wget, curl, gcc, make       |
+| ruby     | quay.io/hummingbird/ruby   | 145          | 5/28/78/34                 | 0             | bash, apt, wget, curl, gcc, make, gem  |
+
+**Acceptance Criteria:**
+
+- [ ] Extension activates without errors
+- [ ] Provider is registered on activation
+- [ ] Catalog contains sample image mappings with severity distribution
+- [ ] getAlternative returns OptimizeResult with all fields (severity, bloat, historical)
+- [ ] getCatalog returns full catalog
+- [ ] Provider is unregistered on deactivation
 
 ---
 

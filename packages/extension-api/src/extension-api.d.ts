@@ -4940,26 +4940,60 @@ declare module '@podman-desktop/api' {
   }
 
   /**
+   * CVE severity distribution breakdown
+   */
+  export interface SeverityDistribution {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }
+
+  /**
+   * Metrics for an image (size, CVE count, signature status)
+   */
+  export interface ImageMetrics {
+    /** Image tag */
+    tag?: string;
+    /** Formatted size string */
+    size: string;
+    /** Size in bytes */
+    sizeBytes?: number;
+    /** Total CVE count */
+    cveCount: number;
+    /** Whether the image is signed */
+    isSigned: boolean;
+    /** CVE breakdown by severity */
+    severityDistribution?: SeverityDistribution;
+  }
+
+  /**
+   * Historical security data for an image
+   */
+  export interface HistoricalSecurityData {
+    /** Daily average CVE count over time */
+    dailyAverageCVEs: number;
+    /** Last update timestamp */
+    lastUpdated: string;
+  }
+
+  /**
    * Result of an image optimization check
    */
   export interface OptimizeResult {
-    /** CVE count of the current image (if known) */
-    currentCVECount?: number;
+    /** Metrics for the current image */
+    currentImage: ImageMetrics;
     /** Information about the hardened alternative */
-    alternative?: {
+    alternative: ImageMetrics & {
+      /** Alternative image name */
+      imageName: string;
       /** Full registry path to the alternative image */
       registry: string;
-      /** CVE count of the alternative */
-      cveCount?: number;
-      /** Size of the alternative image in bytes */
-      size?: number;
-      /** Whether the alternative is signed */
-      signed?: boolean;
     };
-    /** Percentage of size savings */
-    sizeSavingsPercent?: number;
-    /** Percentage of CVE reduction */
-    cveSavingsPercent?: number;
+    /** Historical security data for the alternative */
+    historicalData?: HistoricalSecurityData;
+    /** List of bloat removed in the alternative (shells, package managers, etc.) */
+    removedBloat?: string[];
   }
 
   /**

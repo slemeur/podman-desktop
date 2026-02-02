@@ -62,6 +62,7 @@ import { FilesystemMonitoring } from '../filesystem-monitoring.js';
 import { IconRegistry } from '../icon-registry.js';
 import { ImageCheckerImpl } from '../image-checker.js';
 import { ImageFilesRegistry } from '../image-files-registry.js';
+import { ImageOptimizerImpl } from '../image-optimizer.js';
 import { ImageRegistry } from '../image-registry.js';
 import {
   InputBoxValidationSeverity,
@@ -223,6 +224,8 @@ export class ExtensionLoader implements IAsyncDisposable {
     private extensionApiVersion: ExtensionApiVersion,
     @inject(FeatureRegistry)
     private featureRegistry: FeatureRegistry,
+    @inject(ImageOptimizerImpl)
+    private imageOptimizerImpl: ImageOptimizerImpl,
   ) {
     this.pluginsDirectory = directories.getPluginsDirectory();
     this.pluginsScanDirectory = directories.getPluginsScanDirectory();
@@ -1535,6 +1538,21 @@ export class ExtensionLoader implements IAsyncDisposable {
       },
     };
 
+    const imageOptimizerProvider = this.imageOptimizerImpl;
+    const imageOptimizer: typeof containerDesktopAPI.imageOptimizer = {
+      registerImageOptimizerProvider: (
+        metadata: containerDesktopAPI.ImageOptimizerProviderMetadata,
+        provider: containerDesktopAPI.ImageOptimizerProvider,
+      ): containerDesktopAPI.Disposable => {
+        const imageOptimizerProviderRegistration = imageOptimizerProvider.registerImageOptimizerProvider(
+          metadata,
+          provider,
+        );
+        disposables.push(imageOptimizerProviderRegistration);
+        return imageOptimizerProviderRegistration;
+      },
+    };
+
     const navigation: typeof containerDesktopAPI.navigation = {
       navigateToImageBuild: async (): Promise<void> => {
         await this.navigationManager.navigateToImageBuild();
@@ -1664,6 +1682,7 @@ export class ExtensionLoader implements IAsyncDisposable {
       context: contextAPI,
       cli,
       imageChecker,
+      imageOptimizer,
       navigation,
       RepositoryInfoParser,
       net,

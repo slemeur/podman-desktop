@@ -33,12 +33,33 @@ export interface ImageOptimizerInfo {
 }
 
 /**
+ * CVE severity distribution breakdown
+ */
+export interface SeverityDistribution {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+/**
  * Metrics for an image (size, CVE count, signature status)
  */
 export interface ImageMetrics {
+  tag?: string;
   size: string;
+  sizeBytes?: number;
   cveCount: number;
   isSigned: boolean;
+  severityDistribution?: SeverityDistribution;
+}
+
+/**
+ * Historical security data for an image
+ */
+export interface HistoricalSecurityData {
+  dailyAverageCVEs: number;
+  lastUpdated: string;
 }
 
 /**
@@ -50,6 +71,10 @@ export interface OptimizeResult {
     imageName: string;
     registry: string;
   };
+  /** Historical security data for the alternative */
+  historicalData?: HistoricalSecurityData;
+  /** List of bloat removed in the alternative (shells, package managers, etc.) */
+  removedBloat?: string[];
 }
 
 /**

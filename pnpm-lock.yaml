@@ -658,12 +658,18 @@ importers:
       '@zerodevx/svelte-toast':
         specifier: ^0.9.6
         version: 0.9.6(svelte@5.47.1)
+      chart.js:
+        specifier: ^4.5.1
+        version: 4.5.1
       electron-context-menu:
         specifier: 4.1.1
         version: 4.1.1
       js-yaml:
         specifier: ^4.1.1
         version: 4.1.1
+      svelte-chartjs:
+        specifier: ^3.1.5
+        version: 3.1.5(chart.js@4.5.1)(svelte@5.47.1)
       tinro:
         specifier: ^0.6.12
         version: 0.6.12
@@ -3390,6 +3396,9 @@ packages:
   '@kubernetes/client-node@1.4.0':
     resolution: {integrity: sha512-Zge3YvF7DJi264dU1b3wb/GmzR99JhUpqTvp+VGHfwZT+g7EOOYNScDJNZwXy9cszyIGPIs0VHr+kk8e95qqrA==}
 
+  '@kurkle/color@0.3.4':
+    resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
+
   '@leichtgewicht/ip-codec@2.0.5':
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
 
@@ -5682,6 +5691,10 @@ packages:
 
   character-reference-invalid@2.0.1:
     resolution: {integrity: sha512-iBZ4F4wRbyORVsu0jPV7gXkOsGYjGHPmAyv+HiHG8gi5PtC9KI2j1+v8/tlibRvjoWX027ypmG/n0HtO5t7unw==}
+
+  chart.js@4.5.1:
+    resolution: {integrity: sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw==}
+    engines: {pnpm: '>=8'}
 
   check-disk-space@3.4.0:
     resolution: {integrity: sha512-drVkSqfwA+TvuEhFipiR1OC9boEGZL5RrWvVsOthdcvQNXyCCuKkEiTOTXZ7qxSf/GLwq4GvzfrQD/Wz325hgw==}
@@ -11074,6 +11087,12 @@ packages:
     peerDependencies:
       svelte: ^5.0.0
 
+  svelte-chartjs@3.1.5:
+    resolution: {integrity: sha512-ka2zh7v5FiwfAX1oMflZ0HkNkgjHjFqANgRyC+vNYXfxtx2ku68Zo+2KgbKeBH2nS1ThDqkIACPzGxy4T0UaoA==}
+    peerDependencies:
+      chart.js: ^3.5.0 || ^4.0.0
+      svelte: ^4.0.0
+
   svelte-check@4.3.5:
     resolution: {integrity: sha512-e4VWZETyXaKGhpkxOXP+B/d0Fp/zKViZoJmneZWe/05Y2aqSKj3YN2nLfYPJBQ87WEiY4BQCQ9hWGu9mPT1a1Q==}
     engines: {node: '>= 18.0.0'}
@@ -15161,6 +15180,8 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  '@kurkle/color@0.3.4': {}
+
   '@leichtgewicht/ip-codec@2.0.5': {}
 
   '@lukeed/csprng@1.1.0': {}
@@ -17834,6 +17855,10 @@ snapshots:
   character-entities@2.0.2: {}
 
   character-reference-invalid@2.0.1: {}
+
+  chart.js@4.5.1:
+    dependencies:
+      '@kurkle/color': 0.3.4
 
   check-disk-space@3.4.0: {}
 
@@ -24277,6 +24302,11 @@ snapshots:
       esrap: 1.2.2
       svelte: 5.47.1
       zimmerframe: 1.1.2
+
+  svelte-chartjs@3.1.5(chart.js@4.5.1)(svelte@5.47.1):
+    dependencies:
+      chart.js: 4.5.1
+      svelte: 5.47.1
 
   svelte-check@4.3.5(picomatch@4.0.3)(svelte@5.47.1)(typescript@5.9.3):
     dependencies:

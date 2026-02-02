@@ -57,8 +57,7 @@ function generateCardHtml(entry: CatalogEntry, registryPath: string, localTags: 
   const altSize = formatSize(entry.alternativeSize);
   const origSize = formatSize(entry.currentSize);
   const sizeReduction = entry.sizeSavingsPercent ?? 0;
-  const cveReduction = entry.currentCVECount ?? 0;
-  const tags = entry.tags ?? ['latest'];
+  const altCveCount = entry.alternativeCVECount ?? 0;
   const hasLocalTags = localTags.length > 0;
   const defaultTag = localTags.includes('latest') ? 'latest' : (localTags[0] ?? 'latest');
 
@@ -79,24 +78,14 @@ function generateCardHtml(entry: CatalogEntry, registryPath: string, localTags: 
         ${hasLocalTags ? '<span class="local-badge" title="Image available locally">Local</span>' : ''}
       </div>
 
-      <!-- Tags/Versions -->
-      <div class="card-tags">
-        ${tags
-          .map(tag => {
-            const isLocal = localTags.includes(tag);
-            return `<span class="tag${isLocal ? ' tag-local' : ''}" title="${isLocal ? 'Available locally' : 'Pull'} ${registryPath}/${entry.hummingbirdImage}:${tag}">${tag}${isLocal ? ' ✓' : ''}</span>`;
-          })
-          .join('')}
-      </div>
-
       <!-- Description -->
       <div class="card-description" title="${entry.description ?? ''}">${entry.description ?? ''}</div>
 
       <!-- Metadata section -->
       <div class="card-metadata">
-        <div class="meta-row" title="Number of CVEs eliminated from the original image">
-          <span class="meta-label">CVEs Fixed</span>
-          <span class="meta-value meta-highlight">${cveReduction}</span>
+        <div class="meta-row" title="Number of CVEs in the hardened image">
+          <span class="meta-label">CVEs</span>
+          <span class="meta-value ${altCveCount === 0 ? 'meta-zero-cve' : ''}">${altCveCount}</span>
         </div>
         <div class="meta-row" title="Compressed image size (original: ${origSize})">
           <span class="meta-label">Size</span>
@@ -110,37 +99,17 @@ function generateCardHtml(entry: CatalogEntry, registryPath: string, localTags: 
 
       <!-- Actions -->
       <div class="card-actions">
-        <div class="pull-dropdown" id="dropdown-${entry.hummingbirdImage}">
-          <button class="btn-pull-dropdown" onclick="toggleDropdown('${entry.hummingbirdImage}')" title="Select tag to pull or run">
-            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
-            </svg>
-            <span>Pull: ${defaultTag}</span>
-            <svg class="dropdown-arrow" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-            </svg>
-          </button>
-          <div class="dropdown-menu" id="menu-${entry.hummingbirdImage}">
-            ${tags
-              .map(tag => {
-                const isLocal = localTags.includes(tag);
-                if (isLocal) {
-                  return `<div class="dropdown-item dropdown-item-local" onclick="runImage('${registryPath}/${entry.hummingbirdImage}:${tag}', '${tag}')">
-                  <span class="item-tag">${tag}</span>
-                  <span class="item-status">Run ▶</span>
-                </div>`;
-                } else {
-                  return `<div class="dropdown-item" onclick="selectAndPull('${entry.hummingbirdImage}', '${registryPath}/${entry.hummingbirdImage}:${tag}', '${tag}')">
-                  <span class="item-tag">${tag}</span>
-                  <span class="item-status">Pull ↓</span>
-                </div>`;
-                }
-              })
-              .join('')}
-          </div>
-        </div>
-        <button class="btn-details" onclick="viewDetails('${entry.hummingbirdImage}')" title="View more details about this image">
-          Details
+        <button class="btn-pull" onclick="pullImage('${registryPath}/${entry.hummingbirdImage}:${defaultTag}')" title="Pull ${registryPath}/${entry.hummingbirdImage}:${defaultTag}">
+          <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+          <span>Pull</span>
+        </button>
+        <button class="btn-more-details" onclick="viewDetails('${entry.hummingbirdImage}')" title="View more details about this image">
+          <svg class="info-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+          </svg>
+          <span>More details</span>
         </button>
       </div>
     </div>
@@ -444,6 +413,11 @@ export function generateCatalogHtml(
       font-weight: 600;
     }
 
+    .meta-zero-cve {
+      color: #22c55e;
+      font-weight: 700;
+    }
+
     .meta-savings {
       color: var(--pd-badge-green);
       font-size: 10px;
@@ -453,115 +427,52 @@ export function generateCatalogHtml(
     /* Actions */
     .card-actions {
       display: flex;
-      gap: 6px;
-      padding: 8px 12px;
-      border-top: 1px solid var(--pd-content-card-border);
-      background: rgba(0, 0, 0, 0.1);
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      margin-top: auto;
     }
 
-    .pull-dropdown {
-      position: relative;
-      flex: 1;
-    }
-
-    .btn-pull-dropdown {
+    .btn-pull {
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 6px;
-      width: 100%;
       background: var(--pd-button-primary);
       color: white;
       border: none;
       border-radius: 4px;
-      padding: 6px 12px;
+      padding: 6px 16px;
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
       transition: background 0.15s;
     }
 
-    .btn-pull-dropdown:hover {
+    .btn-pull:hover {
       background: var(--pd-button-primary-hover);
     }
 
-    .dropdown-arrow {
-      width: 12px;
-      height: 12px;
-      margin-left: auto;
-    }
-
-    .dropdown-menu {
-      display: none;
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      right: 0;
-      background: var(--pd-content-card-bg);
-      border: 1px solid var(--pd-content-card-border);
-      border-radius: 4px;
-      margin-bottom: 4px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-      z-index: 100;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .dropdown-menu.show {
-      display: block;
-    }
-
-    .dropdown-item {
-      padding: 8px 12px;
-      font-size: 12px;
-      color: var(--pd-content-text);
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-
-    .dropdown-item:hover {
-      background: var(--pd-button-primary);
-      color: white;
-    }
-
-    .dropdown-item:first-child {
-      border-radius: 3px 3px 0 0;
-    }
-
-    .dropdown-item:last-child {
-      border-radius: 0 0 3px 3px;
-    }
-
-    .dropdown-item {
+    .btn-more-details {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      gap: 6px;
+      background: transparent;
+      color: var(--pd-button-primary);
+      border: none;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: opacity 0.15s;
     }
 
-    .item-tag {
-      flex: 1;
+    .btn-more-details:hover {
+      opacity: 0.8;
     }
 
-    .item-status {
-      font-size: 10px;
-      opacity: 0.7;
-      margin-left: 8px;
-    }
-
-    .dropdown-item-local {
-      background: rgba(34, 197, 94, 0.1);
-    }
-
-    .dropdown-item-local:hover {
-      background: var(--pd-badge-green);
-    }
-
-    .dropdown-item-local .item-status {
-      color: var(--pd-badge-green);
-    }
-
-    .dropdown-item-local:hover .item-status {
-      color: white;
+    .info-icon {
+      width: 14px;
+      height: 14px;
     }
 
     .btn-icon {
@@ -713,39 +624,6 @@ export function generateCatalogHtml(
       });
     }
 
-    function toggleDropdown(imageId) {
-      // Close all other dropdowns first
-      document.querySelectorAll('.dropdown-menu').forEach(menu => {
-        if (menu.id !== 'menu-' + imageId) {
-          menu.classList.remove('show');
-        }
-      });
-      
-      const menu = document.getElementById('menu-' + imageId);
-      menu.classList.toggle('show');
-    }
-
-    function selectAndPull(imageId, fullImageName, tag) {
-      // Update button text
-      const dropdown = document.getElementById('dropdown-' + imageId);
-      const btn = dropdown.querySelector('.btn-pull-dropdown span');
-      btn.textContent = 'Pull: ' + tag;
-      
-      // Close dropdown
-      document.getElementById('menu-' + imageId).classList.remove('show');
-      
-      // Pull the image
-      pullImage(fullImageName);
-    }
-
-    // Close dropdowns when clicking outside
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest('.pull-dropdown')) {
-        document.querySelectorAll('.dropdown-menu').forEach(menu => {
-          menu.classList.remove('show');
-        });
-      }
-    });
   </script>
 </body>
 </html>

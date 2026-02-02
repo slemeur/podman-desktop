@@ -73,6 +73,16 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
             );
           }
           break;
+        case 'runImage':
+          if (message.imageName) {
+            console.log(`Running image: ${message.imageName}`);
+            // Navigate to images page to run
+            await extensionApi.navigation.navigateToImages();
+            await extensionApi.window.showInformationMessage(
+              `To run ${message.imageName}, use: podman run ${message.imageName}`,
+            );
+          }
+          break;
         case 'viewDetails':
           if (message.imageName) {
             console.log(`Viewing details for: ${message.imageName}`);

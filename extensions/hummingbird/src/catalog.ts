@@ -60,6 +60,8 @@ export interface CatalogEntry {
   removedBloat?: string[];
   /** Daily average CVEs for the alternative (stability metric) */
   dailyAverageCVEs?: number;
+  /** Last update date for the Hummingbird image */
+  lastUpdated?: string;
 }
 
 /**
@@ -84,6 +86,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'g++', 'make', 'perl', 'python'],
     dailyAverageCVEs: 0.1,
+    lastUpdated: '2026-01-28',
   },
   {
     originalImage: 'nodejs',
@@ -101,6 +104,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'g++', 'make', 'perl', 'python'],
     dailyAverageCVEs: 0.1,
+    lastUpdated: '2026-01-28',
   },
   {
     originalImage: 'python',
@@ -118,6 +122,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'make', 'perl', 'pip'],
     dailyAverageCVEs: 0.2,
+    lastUpdated: '2026-01-30',
   },
   {
     originalImage: 'golang',
@@ -135,6 +140,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'git'],
     dailyAverageCVEs: 0.15,
+    lastUpdated: '2026-01-25',
   },
   {
     originalImage: 'go',
@@ -152,6 +158,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'git'],
     dailyAverageCVEs: 0.15,
+    lastUpdated: '2026-01-25',
   },
   {
     originalImage: 'openjdk',
@@ -169,6 +176,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'make', 'binutils'],
     dailyAverageCVEs: 0.08,
+    lastUpdated: '2026-01-27',
   },
   {
     originalImage: 'java',
@@ -186,6 +194,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'make', 'binutils'],
     dailyAverageCVEs: 0.08,
+    lastUpdated: '2026-01-27',
   },
   {
     originalImage: 'ruby',
@@ -203,6 +212,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'gcc', 'make', 'gem'],
     dailyAverageCVEs: 0.12,
+    lastUpdated: '2026-01-20',
   },
   // Web servers
   {
@@ -221,6 +231,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'perl'],
     dailyAverageCVEs: 0.05,
+    lastUpdated: '2026-02-01',
   },
   {
     originalImage: 'httpd',
@@ -238,6 +249,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'perl'],
     dailyAverageCVEs: 0.08,
+    lastUpdated: '2026-01-29',
   },
   // Databases
   {
@@ -256,6 +268,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl'],
     dailyAverageCVEs: 0.03,
+    lastUpdated: '2026-02-01',
   },
   {
     originalImage: 'postgres',
@@ -273,6 +286,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'perl', 'python'],
     dailyAverageCVEs: 0.1,
+    lastUpdated: '2026-01-31',
   },
   {
     originalImage: 'postgresql',
@@ -290,58 +304,7 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'perl', 'python'],
     dailyAverageCVEs: 0.1,
-  },
-  // Base images
-  {
-    originalImage: 'alpine',
-    hummingbirdImage: 'alpine',
-    description: 'Hardened Alpine Linux base image',
-    currentCVECount: 12,
-    alternativeCVECount: 0,
-    currentSize: 7 * 1024 * 1024, // 7MB
-    alternativeSize: 3 * 1024 * 1024, // 3MB
-    sizeSavingsPercent: 57,
-    cveSavingsPercent: 100,
-    signed: true,
-    tags: ['3.18', '3.19', 'latest'],
-    currentSeverity: { critical: 0, high: 2, medium: 6, low: 4 },
-    alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
-    removedBloat: ['apk', 'busybox'],
-    dailyAverageCVEs: 0.02,
-  },
-  {
-    originalImage: 'ubuntu',
-    hummingbirdImage: 'ubuntu',
-    description: 'Hardened Ubuntu base image with minimal attack surface',
-    currentCVECount: 156,
-    alternativeCVECount: 0,
-    currentSize: 78 * 1024 * 1024, // 78MB
-    alternativeSize: 22 * 1024 * 1024, // 22MB
-    sizeSavingsPercent: 72,
-    cveSavingsPercent: 100,
-    signed: true,
-    tags: ['22.04', '24.04', 'latest'],
-    currentSeverity: { critical: 8, high: 35, medium: 78, low: 35 },
-    alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
-    removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'dpkg'],
-    dailyAverageCVEs: 0.15,
-  },
-  {
-    originalImage: 'debian',
-    hummingbirdImage: 'debian',
-    description: 'Hardened Debian base image with minimal attack surface',
-    currentCVECount: 134,
-    alternativeCVECount: 0,
-    currentSize: 124 * 1024 * 1024, // 124MB
-    alternativeSize: 28 * 1024 * 1024, // 28MB
-    sizeSavingsPercent: 77,
-    cveSavingsPercent: 100,
-    signed: true,
-    tags: ['11', '12', 'bookworm', 'latest'],
-    currentSeverity: { critical: 6, high: 28, medium: 68, low: 32 },
-    alternativeSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
-    removedBloat: ['bash', 'sh', 'apt', 'apt-get', 'wget', 'curl', 'dpkg'],
-    dailyAverageCVEs: 0.12,
+    lastUpdated: '2026-01-31',
   },
 ];
 

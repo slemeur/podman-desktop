@@ -3,7 +3,7 @@
   "displayName": "Hummingbird",
   "description": "Provides hardened, lightweight container image alternatives from Hummingbird",
   "version": "1.0.0-next",
-  "icon": "icon.svg",
+  "icon": "icon.png",
   "publisher": "redhat",
   "license": "Apache-2.0",
   "engines": {

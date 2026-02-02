@@ -115,12 +115,16 @@ export async function activate(extensionContext: extensionApi.ExtensionContext):
         }
 
         // Build the result using the correct API types
+        // Use -1 for cveCount to indicate that vulnerability analysis is needed
+        // In a real implementation, this would check if we have scanned the image
+        const needsVulnerabilityScan = true; // Set to false to skip the analysis step
+
         const result: extensionApi.OptimizeResult = {
           currentImage: {
             tag: imageName,
             size: formatSize(entry.currentSize),
             sizeBytes: entry.currentSize,
-            cveCount: entry.currentCVECount ?? 0,
+            cveCount: needsVulnerabilityScan ? -1 : (entry.currentCVECount ?? 0),
             isSigned: false,
             severityDistribution: entry.currentSeverity,
           },

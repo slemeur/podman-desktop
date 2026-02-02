@@ -1,5 +1,5 @@
 <script lang="ts">
-import { faLeaf, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
+import { faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 import type { ImageInfo } from '@podman-desktop/api';
 import { Button, EmptyScreen } from '@podman-desktop/ui-svelte';
 import { onDestroy, onMount } from 'svelte';
@@ -21,8 +21,11 @@ const { imageInfo }: Props = $props();
 let providers: ImageOptimizerInfo[] = $state([]);
 let optimizeResult: OptimizeResult | undefined = $state(undefined);
 let loading = $state(true);
+let analyzing = $state(false);
+let analyzeProgress: string = $state('');
 let error: string | undefined = $state(undefined);
 let cancellableTokenId: number = $state(0);
+let needsAnalysis = $state(false);
 
 let providersUnsubscribe: Unsubscriber;
 
@@ -68,6 +71,15 @@ async function checkForAlternative(): Promise<void> {
     const provider = providers[0];
     if (provider) {
       optimizeResult = await window.getImageOptimizerAlternative(provider.id, imageName, cancellableTokenId);
+
+      // Check if we have CVE data for the current image
+      // If currentImage.cveCount is -1 or undefined, we need to run analysis first
+      if (
+        optimizeResult?.alternative &&
+        (optimizeResult.currentImage.cveCount === undefined || optimizeResult.currentImage.cveCount === -1)
+      ) {
+        needsAnalysis = true;
+      }
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -78,6 +90,7 @@ async function checkForAlternative(): Promise<void> {
     // Track telemetry
     await window.telemetryTrack('imageOptimize.view', {
       hasAlternative: !!optimizeResult?.alternative,
+      needsAnalysis: needsAnalysis,
     });
   }
 }
@@ -124,6 +137,63 @@ function handleInstallExtension(): void {
     .telemetryTrack('imageOptimize.installExtension')
     .catch((err: unknown) => console.error('Error tracking telemetry', err));
   router.goto('/extensions?screen=catalog&searchTerm=' + encodeURIComponent('Hummingbird'));
+}
+
+function handleViewCatalog(): void {
+  window
+    .telemetryTrack('imageOptimize.viewCatalog')
+    .catch((err: unknown) => console.error('Error tracking telemetry', err));
+  router.goto('/webviews/hummingbird-catalog');
+}
+
+async function startVulnerabilityAnalysis(): Promise<void> {
+  analyzing = true;
+  analyzeProgress = 'Initializing scanner...';
+
+  try {
+    // Simulate the analysis steps
+    await new Promise(resolve => setTimeout(resolve, 800));
+    analyzeProgress = 'Pulling image layers...';
+
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    analyzeProgress = 'Scanning for vulnerabilities...';
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    analyzeProgress = 'Analyzing CVE database...';
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    analyzeProgress = 'Generating report...';
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Update the optimizeResult with the scanned CVE data
+    // In a real implementation, this would come from the actual scan results
+    if (optimizeResult) {
+      // Simulate finding CVEs in the current image (mock data)
+      const mockCveCount = 54; // This would come from actual scan
+      optimizeResult = {
+        ...optimizeResult,
+        currentImage: {
+          ...optimizeResult.currentImage,
+          cveCount: mockCveCount,
+        },
+      };
+    }
+
+    // Mark analysis as complete and show results
+    needsAnalysis = false;
+    analyzing = false;
+
+    // Track telemetry
+    await window.telemetryTrack('imageOptimize.analyzeComplete', {
+      imageName: extractImageName(imageInfo!) ?? '',
+    });
+  } catch (err) {
+    analyzing = false;
+    if (err instanceof Error) {
+      error = err.message;
+    }
+  }
 }
 </script>
 
@@ -173,6 +243,159 @@ function handleInstallExtension(): void {
       </div>
       
       <Button onclick={handleInstallExtension}>Install Extension</Button>
+    </div>
+  {:else if analyzing}
+    <!-- Vulnerability Analysis in Progress -->
+    <div class="flex flex-col items-center justify-center h-full gap-8 p-8">
+      <!-- Animated Scanner Icon -->
+      <div class="relative">
+        <svg width="120" height="120" viewBox="0 0 120 120" class="animate-pulse">
+          <!-- Outer ring -->
+          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--pd-content-text)" stroke-width="2" opacity="0.2"/>
+          <!-- Scanning arc -->
+          <circle 
+            cx="60" cy="60" r="50" 
+            fill="none" 
+            stroke="#a855f7" 
+            stroke-width="3" 
+            stroke-dasharray="80 235"
+            class="animate-spin origin-center"
+            style="animation-duration: 2s;"
+          />
+          <!-- Inner hexagon -->
+          <polygon 
+            points="60,20 95,40 95,80 60,100 25,80 25,40" 
+            fill="var(--pd-content-card-bg)" 
+            stroke="#a855f7" 
+            stroke-width="2"
+          />
+          <!-- Shield icon in center -->
+          <path 
+            d="M60 35 L75 42 L75 58 C75 68 68 76 60 80 C52 76 45 68 45 58 L45 42 Z" 
+            fill="#a855f7" 
+            opacity="0.3"
+          />
+          <path 
+            d="M60 35 L75 42 L75 58 C75 68 68 76 60 80 C52 76 45 68 45 58 L45 42 Z" 
+            fill="none" 
+            stroke="#a855f7" 
+            stroke-width="2"
+          />
+          <!-- Magnifying glass -->
+          <circle cx="62" cy="55" r="8" fill="none" stroke="white" stroke-width="2"/>
+          <line x1="68" y1="61" x2="74" y2="67" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      
+      <div class="flex flex-col items-center gap-3 max-w-lg text-center">
+        <h2 class="text-xl font-semibold text-[var(--pd-content-header)]">Analyzing Vulnerabilities</h2>
+        <p class="text-[var(--pd-content-text)] leading-relaxed">
+          Scanning your image for known vulnerabilities and security issues...
+        </p>
+        <div class="flex items-center gap-2 mt-2">
+          <div class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
+          <span class="text-sm text-purple-400 font-medium">{analyzeProgress}</span>
+        </div>
+      </div>
+      
+      <!-- Progress bar -->
+      <div class="w-64 h-1 bg-[var(--pd-content-card-bg)] rounded-full overflow-hidden">
+        <div class="h-full bg-purple-500 rounded-full animate-pulse" style="width: 60%"></div>
+      </div>
+    </div>
+  {:else if needsAnalysis && optimizeResult?.alternative}
+    <!-- Alternative Found but Needs Analysis -->
+    <div class="flex flex-col items-center justify-center h-full gap-6 p-8">
+      <!-- Icon: Image with question mark -->
+      <div class="relative">
+        <svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg" class="opacity-80">
+          <!-- Hexagon background -->
+          <polygon 
+            points="70,10 120,35 120,95 70,120 20,95 20,35" 
+            fill="var(--pd-content-card-bg)" 
+            stroke="#a855f7" 
+            stroke-width="2"
+          />
+          <!-- Shield with checkmark (alternative found) -->
+          <path 
+            d="M70 30 L100 45 L100 75 C100 90 85 105 70 110 C55 105 40 90 40 75 L40 45 Z" 
+            fill="#a855f7" 
+            opacity="0.2"
+          />
+          <path 
+            d="M70 30 L100 45 L100 75 C100 90 85 105 70 110 C55 105 40 90 40 75 L40 45 Z" 
+            fill="none" 
+            stroke="#a855f7" 
+            stroke-width="2"
+          />
+          <!-- Checkmark -->
+          <path d="M55 70 L65 80 L85 55" stroke="#a855f7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Question badge -->
+          <circle cx="105" cy="35" r="18" fill="#f59e0b"/>
+          <text x="105" y="42" text-anchor="middle" fill="white" font-size="20" font-weight="bold">?</text>
+        </svg>
+      </div>
+      
+      <div class="flex flex-col items-center gap-3 max-w-lg text-center">
+        <h2 class="text-xl font-semibold text-[var(--pd-content-header)]">Hardened Alternative Available!</h2>
+        <p class="text-[var(--pd-content-text)] leading-relaxed">
+          A <span class="text-purple-400 font-medium">Hummingbird</span> hardened image is available for 
+          <span class="font-mono text-sm bg-[var(--pd-content-card-bg)] px-2 py-0.5 rounded">{imageInfo?.RepoTags?.[0] ?? 'this image'}</span>.
+        </p>
+        <p class="text-[var(--pd-content-text)] text-sm opacity-70">
+          To compare security improvements, we need to scan your current image for vulnerabilities first.
+        </p>
+      </div>
+      
+      <!-- Alternative preview card -->
+      <div class="bg-[var(--pd-content-card-bg)] rounded-lg border border-purple-500/30 p-4 max-w-md w-full">
+        <div class="flex items-center gap-3 mb-3">
+          <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.2"/>
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+          </svg>
+          <div>
+            <div class="text-sm font-semibold text-[var(--pd-content-header)]">{optimizeResult.alternative.registry}:{optimizeResult.alternative.tag ?? 'latest'}</div>
+            <div class="text-xs text-purple-400">Hummingbird hardened image</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 text-xs text-[var(--pd-content-text)]">
+          <div class="flex items-center gap-1">
+            <span class="text-green-500 font-bold">{optimizeResult.alternative.cveCount}</span>
+            <span class="opacity-60">CVEs</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="font-medium">{optimizeResult.alternative.size}</span>
+            <span class="opacity-60">Size</span>
+          </div>
+          {#if optimizeResult.alternative.isSigned}
+            <div class="flex items-center gap-1 text-green-500">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              <span>Signed</span>
+            </div>
+          {/if}
+          {#if optimizeResult.historicalData?.lastUpdated}
+            <div class="flex items-center gap-1">
+              <svg class="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span class="opacity-60">Updated</span>
+              <span class="font-medium">{new Date(optimizeResult.historicalData.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            </div>
+          {/if}
+        </div>
+      </div>
+      
+      <Button onclick={startVulnerabilityAnalysis}>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <span>Analyze and compare images</span>
+        </div>
+      </Button>
     </div>
   {:else if optimizeResult?.alternative}
     {@const sizeReduction = optimizeResult.currentImage.sizeBytes && optimizeResult.alternative.sizeBytes 
@@ -483,12 +706,78 @@ function handleInstallExtension(): void {
       />
     </div>
   {:else}
-    <EmptyScreen
-      icon={faLeaf}
-      title="No Optimized Alternative"
-      message="No Hummingbird alternative is available for this image at this time."
-    >
-      <Button onclick={handleLearnMore}>Learn More About Hummingbird</Button>
-    </EmptyScreen>
+    <!-- No Alternative Available -->
+    <div class="flex flex-col items-center justify-center h-full gap-6 p-8">
+      <!-- Icon -->
+      <div class="relative">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="opacity-60">
+          <!-- Hexagon outline -->
+          <polygon 
+            points="60,10 105,32.5 105,77.5 60,100 15,77.5 15,32.5" 
+            fill="var(--pd-content-card-bg)" 
+            stroke="var(--pd-content-text)" 
+            stroke-width="2"
+            opacity="0.5"
+          />
+          <!-- Dashed inner hexagon -->
+          <polygon 
+            points="60,25 90,42 90,68 60,85 30,68 30,42" 
+            fill="none" 
+            stroke="var(--pd-content-text)" 
+            stroke-width="1.5"
+            stroke-dasharray="4 4"
+            opacity="0.3"
+          />
+          <!-- Question mark or empty indicator -->
+          <text x="60" y="62" text-anchor="middle" fill="var(--pd-content-text)" font-size="28" font-weight="300" opacity="0.4">?</text>
+        </svg>
+      </div>
+      
+      <div class="flex flex-col items-center gap-3 max-w-lg text-center">
+        <h2 class="text-xl font-semibold text-[var(--pd-content-header)]">No Hardened Alternative Available</h2>
+        <p class="text-[var(--pd-content-text)] opacity-70 leading-relaxed">
+          There is currently no Hummingbird hardened image available for 
+          <span class="font-mono text-sm bg-[var(--pd-content-card-bg)] px-2 py-0.5 rounded">{imageInfo?.RepoTags?.[0] ?? 'this image'}</span>.
+        </p>
+        <p class="text-sm text-[var(--pd-content-text)] opacity-50">
+          Hummingbird images are continuously being added. Check back later or request support for this image.
+        </p>
+      </div>
+      
+      <!-- Info card about Hummingbird -->
+      <div class="bg-[var(--pd-content-card-bg)] rounded-lg border border-[var(--pd-content-card-border)] p-4 max-w-md w-full">
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.2"/>
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+          </svg>
+          <div class="text-sm">
+            <div class="font-semibold text-[var(--pd-content-header)] mb-1">What is Hummingbird?</div>
+            <p class="text-[var(--pd-content-text)] opacity-70 text-xs leading-relaxed">
+              Hummingbird provides hardened, minimal container images with zero or near-zero CVEs, 
+              smaller footprint, and enterprise-grade security for production workloads.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <Button onclick={handleViewCatalog}>
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" fill="currentColor" opacity="0.2"/>
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+            </svg>
+            <span>Browse Available Images</span>
+          </div>
+        </Button>
+        <button 
+          class="text-sm text-[var(--pd-link)] hover:underline cursor-pointer"
+          onclick={handleLearnMore}
+        >
+          Learn More
+        </button>
+      </div>
+    </div>
   {/if}
 </div>

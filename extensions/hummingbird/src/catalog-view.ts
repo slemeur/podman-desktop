@@ -193,26 +193,6 @@ export function generateCatalogHtml(
       text-transform: capitalize;
     }
 
-    .header-actions {
-      flex: 1;
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-    }
-
-    .btn-refresh {
-      background: none;
-      border: none;
-      color: var(--pd-link);
-      font-size: 13px;
-      cursor: pointer;
-      padding: 4px 8px;
-    }
-
-    .btn-refresh:hover {
-      text-decoration: underline;
-    }
-
     .page-description {
       margin-bottom: 16px;
       padding: 12px 16px;
@@ -550,9 +530,6 @@ export function generateCatalogHtml(
   <div class="page-container">
     <div class="page-header">
       <h1 class="page-title">Hummingbird Catalog</h1>
-      <div class="header-actions">
-        <button class="btn-refresh" onclick="refreshCatalog()">Refresh the catalog</button>
-      </div>
     </div>
 
     <div class="page-description">
@@ -599,12 +576,6 @@ export function generateCatalogHtml(
       vscode.postMessage({
         command: 'viewDetails',
         imageName: imageName
-      });
-    }
-
-    function refreshCatalog() {
-      vscode.postMessage({
-        command: 'refresh'
       });
     }
 
